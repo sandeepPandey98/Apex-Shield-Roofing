@@ -30,3 +30,5 @@ Read-only sandbox verification on 2026-11-13: Events HTTP 200, zero records; Lea
 ## Whop sidebar
 
 These routes are ready to use as destinations. No Whop app experiences or sidebar entries have been created by this code change. If the app dashboard supports experience URLs and admin-only visibility, use these paths with the deployed site origin and restrict those entries to admins. Dashboard labels and available experience types depend on the app. The site's server token authentication remains required regardless of sidebar visibility. Do not treat a lock icon or hidden sidebar link as access control.
+
+Invoice send/issue may require business verification even in sandbox. The Home page has a Verify now banner, and the billing form links directly to the Whop verification screen when that specific error occurs. The draft remains in Whop. Keep the form open and retry the saved draft after completing verification; navigating away discards only the form's draft reference, not the provider record. Existing drafts remain visible in Whop. Matching retries never create another draft, and already-issued invoices are not resent or charged again by the resume flow.

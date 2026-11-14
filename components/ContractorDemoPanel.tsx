@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DEMO_MODE } from "@/config/site";
 import { useContractorSession } from "@/lib/use-contractor-session";
 import { Modal } from "./Modal";
-export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSession = false, onSessionExpired }: { onClose?: () => void; embedded?: boolean; authenticatedSession?: boolean; onSessionExpired?: () => void }) {
+export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSession = false, onSessionExpired, onInvoiceUpdated }: { onClose?: () => void; embedded?: boolean; authenticatedSession?: boolean; onSessionExpired?: () => void; onInvoiceUpdated?: () => void }) {
   const session = useContractorSession(!embedded && !DEMO_MODE);
   const signedIn = authenticatedSession || session.authenticated;
   const [total, setTotal] = useState(12500),
@@ -12,6 +12,8 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [verificationRequired, setVerificationRequired] = useState(false);
   const [invoiceLink, setInvoiceLink] = useState<string | null>(null);
   const [key, setKey] = useState(crypto.randomUUID());
   const [requestedAt, setRequestedAt] = useState(new Date().toISOString());
@@ -33,6 +35,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
         },
         body: JSON.stringify({
           customerEmail: f.get("email"),
+          ...(draftId ? {invoiceId:draftId} : {}),
           requestedAt,
           totalJobAmount: total,
           depositPaid: deposit,
@@ -49,7 +52,12 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
       });
       const data = await response.json();
       if (response.status === 401) {session.invalidate(); onSessionExpired?.();}
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        if (data.invoiceId) {setDraftId(data.invoiceId); onInvoiceUpdated?.();}
+        setVerificationRequired(data.code === "invoice_account_verification_required");
+        throw new Error(data.error);
+      }
+      setDraftId(null); setVerificationRequired(false); onInvoiceUpdated?.();
       setMessage(
         data.demo
           ? data.message
@@ -76,7 +84,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
           ? "Demo calculator · no invoices are created and no cards are charged."
           : "Authorized contractor access. Confirm job completion, the deposit received, and the customer’s billing agreement before submitting."}
       </p>
-      <form className="admin-form" onSubmit={submit}>
+      <form className="admin-form" onSubmit={submit} onChange={() => {if (draftId) {setDraftId(null); setVerificationRequired(false); setKey(crypto.randomUUID()); setRequestedAt(new Date().toISOString());}}}>
         <label>
           Customer email
           <input
@@ -177,6 +185,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
             {error}
           </p>
         )}
+        {verificationRequired && <a className="button secondary" href={`https://${process.env.NEXT_PUBLIC_WHOP_ENVIRONMENT === "sandbox" ? "sandbox.whop.com" : "whop.com"}/verify-identity/${process.env.NEXT_PUBLIC_WHOP_ACCOUNT_ID}/`} target="_blank" rel="noopener noreferrer">Complete Whop verification ↗</a>}
         {message && (
           <p className="success-inline" role="status">
             {message}
@@ -191,7 +200,9 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
             ? "Processing…"
             : DEMO_MODE
               ? "Preview final balance"
-              : charge
+              : draftId
+                ? charge ? "Retry saved draft & charge" : "Retry sending saved draft"
+                : charge
                 ? "Issue invoice & charge saved method"
                 : "Create & send invoice"}
         </button>

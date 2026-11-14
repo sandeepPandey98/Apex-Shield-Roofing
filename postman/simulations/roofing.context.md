@@ -101,3 +101,7 @@ Actual sandbox POST /leads returned 410 gone with an explicit migration to POST 
 ## Hosted credential routing — 2026-11-14
 
 Whop hosting replaces outbound Authorization unless x-whop-inject-key: none is sent. Explicit sandbox calls now opt out and read the custom ROOFING_WHOP_API_KEY binding, because the native WHOP_API_KEY secret name is reserved. Hosted pixel reads opt into the automatically injected company credential and scope to the hosting business instead of the sandbox merchant. Simulation tests distinguish both paths and assert the explicit credential is absent from hosted tracking requests. Fifty API/workflow checks pass.
+
+## Invoice account verification — 2026-11-14
+
+Actual draft create returned 201; send returned 400 invoice_account_verification_required. Stand-in reproduces the issue-stage failure. Route tests verify that a 409 response retains the draft, subsequent retry GETs and sends that same record without a second create, already-open records are not reissued, and foreign-account or changed-balance references fail. UI checks retain invoiceId across the retry and show a direct verification link. Sender verification remains an external prerequisite, never bypassed by tests or template code.

@@ -4,6 +4,7 @@ export class ApiError extends Error {
     message: string,
     public status = 502,
     public upstreamStatus?: number,
+    public providerCode?: string,
   ) {
     super(message);
   }
@@ -66,6 +67,7 @@ export async function whopRequest<T = Record<string, unknown>>(
         : "Whop could not complete this request. Check the business dashboard before retrying.",
       response.status === 429 ? 429 : 502,
       response.status,
+      typeof (data as any)?.error?.code === "string" ? (data as any).error.code : undefined,
     );
   return data;
 }

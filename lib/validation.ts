@@ -22,6 +22,7 @@ export const paymentSchema = z.object({
 export const invoiceSchema = z
   .object({
     customerEmail: z.email(),
+    invoiceId: z.string().regex(/^pay_[A-Za-z0-9]+$/).optional(),
     requestedAt: z.iso.datetime(),
     totalJobAmount: z.number().finite().positive().max(1000000),
     depositPaid: z.number().finite().nonnegative().max(1000000).default(500),

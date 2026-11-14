@@ -82,6 +82,6 @@ export function ContractorAdmin({kind}: {kind: Kind}) {
         {next && <button className="button secondary" disabled={busy} onClick={() => void load(true)}>Load more records</button>}
       </>}
     </section>
-    {kind === "invoices" && session.authenticated && <section className="contractor-card contractor-invoice"><h2>Create a final balance invoice</h2><ContractorDemoPanel embedded authenticatedSession onSessionExpired={() => {session.invalidate(); reset(); setError("Your session has expired. Enter your contractor token to sign in again.");}} /></section>}
+    {kind === "invoices" && session.authenticated && <section className="contractor-card contractor-invoice"><h2>Create a final balance invoice</h2><ContractorDemoPanel embedded authenticatedSession onInvoiceUpdated={() => void load()} onSessionExpired={() => {session.invalidate(); reset(); setError("Your session has expired. Enter your contractor token to sign in again.");}} /></section>}
   </main>;
 }

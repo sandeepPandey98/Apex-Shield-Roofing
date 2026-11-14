@@ -587,3 +587,27 @@ test("hosted pixel reads use the hosting business and injected credential while 
   for(const [k,v] of [["ROOFING_HOSTED_TRACKING",previous.flag],["WHOP_ACCOUNT_ID",previous.account],["NEXT_PUBLIC_WHOP_ACCOUNT_ID",previous.sandbox]])if(v===undefined)delete process.env[k!];else process.env[k!]=v;
  }
 });
+
+
+test("verification failure returns the saved draft and retry sends it without creating another",async()=>{
+ await control("invoice-unverified");
+ const blocked=await invoices(req("invoices",invoice,admin));
+ assert.equal(blocked.status,409);
+ const data=await blocked.json();assert.equal(data.code,"invoice_account_verification_required");assert.equal(data.invoiceId,"pay_invoice01");assert.match(data.error,/draft is saved/);
+ await control("ok");
+ const retried=await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId},admin));
+ assert.equal(retried.status,200);
+ const log=await calls();assert.deepEqual(log.map(x=>x.path),["/api/v1/invoices/pay_invoice01","/api/v1/invoices/pay_invoice01/send"]);
+ await control("ok");
+ assert.equal((await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId},admin))).status,200);
+ assert.equal((await calls()).length,1); // already open: no resend or second charge
+});
+test("saved invoice references cannot send another account's draft or a different balance",async()=>{
+ const first=await invoices(req("invoices",invoice,admin));assert.equal(first.status,200);
+ await control("invoice-wrong-account");
+ assert.equal((await invoices(req("invoices",{...invoice,invoiceId:"pay_invoice01"},admin))).status,409);
+ assert.equal((await calls()).length,1);
+ await control("ok");
+ assert.equal((await invoices(req("invoices",{...invoice,totalJobAmount:13000,invoiceId:"pay_invoice01"},admin))).status,409);
+ assert.equal((await calls()).length,1);
+});
