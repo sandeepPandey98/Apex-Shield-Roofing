@@ -24,7 +24,7 @@ Official Members API and notes/metadata reference: https://docs.whop.com/api-ref
 
 ## Reversible native Leads API test mode
 
-Set the server-only `ESTIMATE_CAPTURE_MODE=leads_api` to test native Lead creation in sandbox. `members` (the default) retains the working notes/metadata capture. Both implementations remain in source. Mode changes need a local server restart; use `.dev.vars` for Whop Vite development and `.env.local` for Next. The local private files are currently set to `leads_api`; the hosted runtime stays on the default Members mode.
+Set the server-only `ESTIMATE_CAPTURE_MODE=leads_api` to test native Lead creation in sandbox. `members` (the default) retains the working notes/metadata capture. Both implementations remain in source. Mode changes need a local server restart; use `.dev.vars` for Whop Vite development and `.env.local` for Next. The local private files were restored to `members` after the test; the hosted runtime also uses Members mode.
 
 Native mode resolves the customer's Whop user ID through Members, then calls POST /leads with account_id, user_id and the estimate metadata. It does not write Members notes/metadata or silently fall back. Success requires a returned lead_ ID, matching user identity and valid creation time. Only confirmed success can trigger a confirmation email or the frontend estimate_requested event. The admin estimate list selects GET /leads and labels the returned source when this mode is active. Native test mode refuses production credentials/environment.
 
