@@ -53,6 +53,7 @@ const payment = {
   saveCardConsent: true,
 };
 const invoice = {
+  billingAddress: {line1:"123 Oak Street",city:"Austin",state:"TX",postal_code:"78701",country:"US"},
   customerEmail: "demo@example.com",
   requestedAt: "2026-11-13T08:00:00.000Z",
   totalJobAmount: 12500,
@@ -136,7 +137,10 @@ test("invoice endpoint denies unauthenticated callers before upstream side effec
 test("email invoice creates draft in dollars, then sends with separate idempotency keys", async () => {
   const response = await invoices(req("invoices", invoice, admin));
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).balanceDue, 12000);
+  const data=await response.json();
+  assert.equal(data.balanceDue,12000);
+  assert.equal(new URL(data.invoice.checkout_link).pathname,"/checkout/pay_invoice01/");
+  assert.equal(new URL(data.invoice.checkout_link).searchParams.get("token"),"c2FtcGxlLw==--123abc");
   const log = await calls();
   assert.equal(log.length, 2);
   assert.equal(log[0].body.items[0].variant.initial_price, 12000);
@@ -492,6 +496,7 @@ test("admin lists return leads, pagination, safe invoice links and permission er
   const invoices = await (await adminList(request("invoices"),"invoices")).json();
   assert.equal(invoices.data[0].amount,"500.00");
   assert.equal(invoices.data[0].link,null);
+  assert.equal(new URL(invoices.data[1].link).pathname,"/checkout/pay_invoice02/");
   await control("read-forbidden");
   assert.equal((await adminList(request("tracking"),"tracking")).status,503);
 });
@@ -597,9 +602,11 @@ test("verification failure returns the saved draft and retry sends it without cr
  await control("ok");
  const retried=await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId},admin));
  assert.equal(retried.status,200);
- const log=await calls();assert.deepEqual(log.map(x=>x.path),["/api/v1/invoices/pay_invoice01","/api/v1/invoices/pay_invoice01/send"]);
+ const log=await calls();assert.deepEqual(log.map(x=>x.path),["/api/v1/invoices/pay_invoice01","/api/v1/invoices/pay_invoice01","/api/v1/invoices/pay_invoice01/send"]);
  await control("ok");
- assert.equal((await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId},admin))).status,200);
+ const alreadyIssued=await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId},admin));
+ assert.equal(alreadyIssued.status,200);
+ assert.equal(new URL((await alreadyIssued.json()).invoice.checkout_link).pathname,"/checkout/pay_invoice01/");
  assert.equal((await calls()).length,1); // already open: no resend or second charge
 });
 test("saved invoice references cannot send another account's draft or a different balance",async()=>{
@@ -610,4 +617,21 @@ test("saved invoice references cannot send another account's draft or a differen
  await control("ok");
  assert.equal((await invoices(req("invoices",{...invoice,totalJobAmount:13000,invoiceId:"pay_invoice01"},admin))).status,409);
  assert.equal((await calls()).length,1);
+});
+
+
+test("new invoices require a billing address before creating an upstream draft",async()=>{
+ const {billingAddress,...withoutAddress}=invoice;
+ const result=await invoices(req("invoices",withoutAddress,admin));
+ assert.equal(result.status,422);assert.equal((await result.json()).code,"invoice_tax_address_required");assert.equal((await calls()).length,0);
+});
+test("tax-address failures retain the draft and address corrections patch the same invoice",async()=>{
+ await control("invoice-tax-address");
+ const result=await invoices(req("invoices",invoice,admin));
+ assert.equal(result.status,422);const data=await result.json();assert.equal(data.invoiceId,"pay_invoice01");assert.equal(data.code,"invoice_tax_address_required");
+ assert.deepEqual((await calls())[0].body.billing_address,invoice.billingAddress);
+ await control("ok");
+ const address={...invoice.billingAddress,line1:"456 Oak Street"};
+ assert.equal((await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId,billingAddress:address},admin))).status,200);
+ const log=await calls();assert.equal(log.length,3);assert.equal((log[1] as any).method,"PATCH");assert.deepEqual(log[1].body,{billing_address:address});assert.equal(log.some(x=>x.path==="/api/v1/invoices"),false);
 });

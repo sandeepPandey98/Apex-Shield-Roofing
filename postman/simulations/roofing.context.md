@@ -105,3 +105,10 @@ Whop hosting replaces outbound Authorization unless x-whop-inject-key: none is s
 ## Invoice account verification — 2026-11-14
 
 Actual draft create returned 201; send returned 400 invoice_account_verification_required. Stand-in reproduces the issue-stage failure. Route tests verify that a 409 response retains the draft, subsequent retry GETs and sends that same record without a second create, already-open records are not reissued, and foreign-account or changed-balance references fail. UI checks retain invoiceId across the retry and show a direct verification link. Sender verification remains an external prerequisite, never bypassed by tests or template code.
+
+## Invoice tax address and successful send — 2026-11-14
+
+Once verification cleared, real send failed with invoice_tax_address_required. Added validated US billing_address to create and PATCH on resumed drafts; missing address fails before upstream draft creation. Tests cover provider tax errors, correcting address without changing draft identity, and client retry retaining the reference through billing-field edits. The same actual sandbox draft was subsequently issued/sent: HTTP 200, open, checkout link returned, one native send-history record. No payment charge and no second draft. Fifty-four workflow tests and six UI tests pass.
+
+
+Invoice checkout links verified against the native Whop dashboard Preview checkout action: signed pay_ receipt tokens are converted to the environment-matched /checkout/{receipt}/?token= URL. The real open invoice checkout rendered USD 12,990.00 with Whop branding and payment methods; no Pay action was performed. List, send and already-issued responses now normalize these links and reject unsafe destinations. Regression validation: TypeScript, 56 server/client checks through the local Postman simulation, and 6 React UI checks passed.

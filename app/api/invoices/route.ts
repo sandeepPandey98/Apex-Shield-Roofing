@@ -3,6 +3,7 @@ import { adminList } from "@/lib/admin-data";
 import { DEMO_MODE } from "@/config/site";
 import { balanceCents, invoiceSchema } from "@/lib/validation";
 import { ApiError, whopAccount, whopRequest } from "@/lib/whop";
+import { invoiceCheckoutLink } from "@/lib/invoice-link";
 import {
   checkOrigin,
   jsonError,
@@ -41,8 +42,15 @@ export async function POST(req: Request) {
     if (existing && existing.status !== "draft") {
       if (!["open","paid","pending","authorized"].includes(existing.status))
         throw new ApiError("This invoice can no longer be sent. Check its status in Whop.", 409);
-      return Response.json({success:true,demo:false,invoice:existing,balanceDue,alreadyIssued:true});
+      return Response.json({success:true,demo:false,invoice:{...existing,checkout_link:invoiceCheckoutLink(existing.checkout_link)},balanceDue,alreadyIssued:true});
     }
+    draftId = existing?.id;
+    if (!input.billingAddress) return Response.json({
+      error:"Enter the customer’s US billing address so Whop can calculate invoice tax.",
+      code:"invoice_tax_address_required", ...(draftId ? {invoiceId:draftId} : {}),
+    }, {status:422});
+    const addressKey = createHash("sha256").update(JSON.stringify(input.billingAddress)).digest("hex").slice(0,16);
+    if (existing) await whopRequest(`/invoices/${existing.id}`, {billing_address:input.billingAddress}, `${key}-address-${addressKey}`, "PATCH");
     const draft = existing || await whopRequest<{ id: string }>(
       "/invoices",
       {
@@ -51,6 +59,7 @@ export async function POST(req: Request) {
           ? { member_id: input.memberId }
           : { email_address: input.customerEmail }),
         recipient_emails: [input.customerEmail],
+        billing_address: input.billingAddress,
         items: [
           {
             variant: {
@@ -86,10 +95,12 @@ export async function POST(req: Request) {
     }>(
       `/invoices/${draft.id}/${input.chargeStoredCard ? "issue" : "send"}`,
       {},
-      `${key}-issue`,
+      `${key}-issue-${addressKey}`,
     );
-    return Response.json({ success: true, demo: false, invoice, balanceDue });
+    return Response.json({ success: true, demo: false, invoice:{...invoice,checkout_link:invoiceCheckoutLink(invoice.checkout_link)}, balanceDue });
   } catch (error) {
+    if (error instanceof ApiError && error.providerCode === "invoice_tax_address_required")
+      return Response.json({error:"Whop needs a valid customer billing address to calculate invoice tax. Check the address and retry the saved draft.",code:"invoice_tax_address_required",invoiceId:draftId},{status:422});
     if (error instanceof ApiError && error.providerCode === "invoice_account_verification_required") {
       return Response.json({
         error: draftId ? "Whop requires business verification before this invoice can be sent. Your draft is saved. Complete verification in the issuing business’s Whop dashboard, then retry this draft." : "Whop requires business verification before an invoice can be issued. Complete verification in the issuing business’s Whop dashboard.",

@@ -154,3 +154,8 @@ export const DEMO_ESTIMATE = {
   zipCode: "78701",
   notes: "A few shingles are missing after a recent storm, and there is a small water stain near the chimney. I would like a roof inspection and a replacement estimate.",
 };
+
+
+export const DEMO_BILLING_ADDRESS = {
+  line1: "123 Oak Street", city: "Austin", state: "TX", postal_code: "78701", country: "US" as const,
+};

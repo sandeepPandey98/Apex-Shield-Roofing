@@ -23,6 +23,13 @@ export const invoiceSchema = z
   .object({
     customerEmail: z.email(),
     invoiceId: z.string().regex(/^pay_[A-Za-z0-9]+$/).optional(),
+    billingAddress: z.object({
+      line1: z.string().trim().min(5).max(250),
+      city: z.string().trim().min(2).max(100),
+      state: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/),
+      postal_code: z.string().trim().regex(/^\d{5}(-\d{4})?$/),
+      country: z.literal("US"),
+    }).optional(),
     requestedAt: z.iso.datetime(),
     totalJobAmount: z.number().finite().positive().max(1000000),
     depositPaid: z.number().finite().nonnegative().max(1000000).default(500),

@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { DEMO_MODE } from "@/config/site";
+import { DEMO_BILLING_ADDRESS, DEMO_MODE } from "@/config/site";
 import { useContractorSession } from "@/lib/use-contractor-session";
 import { Modal } from "./Modal";
 export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSession = false, onSessionExpired, onInvoiceUpdated }: { onClose?: () => void; embedded?: boolean; authenticatedSession?: boolean; onSessionExpired?: () => void; onInvoiceUpdated?: () => void }) {
+  const sampleAddress = DEMO_MODE || process.env.NEXT_PUBLIC_WHOP_ENVIRONMENT === "sandbox" ? DEMO_BILLING_ADDRESS : undefined;
   const session = useContractorSession(!embedded && !DEMO_MODE);
   const signedIn = authenticatedSession || session.authenticated;
   const [total, setTotal] = useState(12500),
@@ -36,6 +37,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
         body: JSON.stringify({
           customerEmail: f.get("email"),
           ...(draftId ? {invoiceId:draftId} : {}),
+          billingAddress: {line1:f.get("billingLine1"),city:f.get("billingCity"),state:f.get("billingState"),postal_code:f.get("billingZip"),country:"US"},
           requestedAt,
           totalJobAmount: total,
           depositPaid: deposit,
@@ -58,10 +60,14 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
         throw new Error(data.error);
       }
       setDraftId(null); setVerificationRequired(false); onInvoiceUpdated?.();
+      const invoiceTotal = data.invoice?.total;
+      const totalLabel = invoiceTotal?.amount != null
+        ? new Intl.NumberFormat("en-US", {style:"currency",currency:invoiceTotal.currency || "usd"}).format(Number(invoiceTotal.amount))
+        : null;
       setMessage(
         data.demo
           ? data.message
-          : `Invoice ${data.invoice.id}: ${data.invoice.status}. Check Whop for delivery or charge status.`,
+          : `Invoice ${data.invoice.id}: ${data.invoice.status}.${totalLabel ? ` Total including tax: ${totalLabel}.` : ""} Check Whop for delivery or charge status.`,
       );
       const link = data.invoice?.checkout_link;
       if (typeof link === "string") {
@@ -84,7 +90,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
           ? "Demo calculator · no invoices are created and no cards are charged."
           : "Authorized contractor access. Confirm job completion, the deposit received, and the customer’s billing agreement before submitting."}
       </p>
-      <form className="admin-form" onSubmit={submit} onChange={() => {if (draftId) {setDraftId(null); setVerificationRequired(false); setKey(crypto.randomUUID()); setRequestedAt(new Date().toISOString());}}}>
+      <form className="admin-form" onSubmit={submit} onChange={(e) => {if (draftId) {if (!(e.target instanceof HTMLInputElement && e.target.name.startsWith("billing"))) {setDraftId(null); setVerificationRequired(false);} setKey(crypto.randomUUID()); setRequestedAt(new Date().toISOString());}}}>
         <label>
           Customer email
           <input
@@ -94,6 +100,14 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
             required
           />
         </label>
+        <label>Customer billing street address<input name="billingLine1" defaultValue={sampleAddress?.line1} autoComplete="billing address-line1" minLength={5} maxLength={250} required /></label>
+        <div className="form-grid">
+          <label>City<input name="billingCity" defaultValue={sampleAddress?.city} autoComplete="billing address-level2" minLength={2} maxLength={100} required /></label>
+          <label>State<input name="billingState" defaultValue={sampleAddress?.state} autoComplete="billing address-level1" placeholder="TX" pattern="[A-Za-z]{2}" maxLength={2} required /></label>
+          <label>ZIP code<input name="billingZip" defaultValue={sampleAddress?.postal_code} autoComplete="billing postal-code" placeholder="78701" pattern="[0-9]{5}(-[0-9]{4})?" maxLength={10} required /></label>
+          <label>Country<input value="United States" readOnly /></label>
+        </div>
+        <small>{sampleAddress ? "Sandbox sample address · edit to match your test customer." : "Use the customer’s billing address. Whop calculates applicable tax before issuing the invoice."}</small>
         <div className="form-grid">
           <label>
             Agreed project total ($)
@@ -131,7 +145,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
           />
         </label>
         <div className="balance">
-          <span>Final balance</span>
+          <span>Balance before tax</span>
           <strong>
             $
             {Math.max(
@@ -140,6 +154,7 @@ export function ContractorDemoPanel({ onClose, embedded = false, authenticatedSe
             ).toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </strong>
         </div>
+        <small>Whop calculates applicable tax when issuing the invoice. The payment link shows the final total.</small>
         <label>
           Collection method
           <select

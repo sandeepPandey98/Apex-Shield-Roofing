@@ -19,7 +19,7 @@ Status: local implementation complete; account integration and hosted acceptance
 - [ ] Payment fields rendered with real sandbox plans; $149/$399/$500 checkouts verified.
 - [x] Actual sandbox replacement deposit and linked succeeded setup verified through the API; recovered confirmation displayed in the browser.
 - [x] Actual sandbox Whop lead retrieved through the API with linked user and submitted contact/property metadata.
-- [ ] Actual invoice link sent and/or authorized saved-method invoice settled in sandbox.
+- [x] Actual sandbox manual-payment invoice sent: native status open, payment link present, and one send-history record. Stored-method invoice settlement remains unverified.
 - [ ] Actual Whop pixel/network event delivery demonstrated.
 - [x] Whop deployment authenticated, uploaded and reachable at https://apex-shield-roofing-demo.whop.site (current hosting suffix differs from the original bounty).
 - [ ] Hosted mobile/desktop console and layout checks completed.

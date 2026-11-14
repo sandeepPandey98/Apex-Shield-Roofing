@@ -1,6 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { invoiceSchema, balanceCents, leadSchema } from "../lib/validation";
+import { invoiceCheckoutLink } from "../lib/invoice-link";
+test("signed invoice links use the matching Whop checkout and encode the token", () => {
+  const signed = "pay_sample.abc+/=--123abc";
+  const sandbox = new URL(invoiceCheckoutLink(signed,"sandbox")!);
+  assert.equal(sandbox.origin,"https://sandbox.whop.com");
+  assert.equal(sandbox.pathname,"/checkout/pay_sample/");
+  assert.equal(sandbox.searchParams.get("token"),"abc+/=--123abc");
+  assert.equal(new URL(invoiceCheckoutLink(signed,"production")!).origin,"https://whop.com");
+  assert.equal(invoiceCheckoutLink(signed,"invalid"),null);
+});
+test("invoice links reject unsafe destinations and malformed tokens", () => {
+  for(const value of [null,"javascript:alert(1)","https://whop.com.evil.example/pay","https://whop.com@evil.example/","https://user:pass@whop.com/","http://whop.com/","/checkout/pay_abc","pay_abc.unverified","pay_abc.abc--123&x=evil"])
+    assert.equal(invoiceCheckoutLink(value),null);
+  assert.equal(invoiceCheckoutLink("https://sandbox.whop.com/checkout/pay_sample/"),"https://sandbox.whop.com/checkout/pay_sample/");
+});
 const invoice = {
   customerEmail: "homeowner@example.com",
   requestedAt: "2026-11-13T08:00:00.000Z",

@@ -5962,6 +5962,895 @@
         "x-whop-docs-subgroup": "Notes"
       },
       "x-whop-surface": "native"
+    },
+    "/invoices/{id}": {
+      "delete": {
+        "description": "Deletes a draft or void invoice. A deleted invoice no longer appears in invoice or payment lists, and its ID returns a `404`. Deleting can't be undone. Void an open invoice before you delete it. A draft with a scheduled send or charge must be unscheduled first. A draft renewal invoice can't be deleted, and neither can a void invoice that collected money or still awaits a bank wire. The invoice's `deletable` field is `true` when this call can delete it.",
+        "operationId": "deleteInvoice",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "deleted": {
+                      "description": "Always `true`.",
+                      "example": true,
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "description": "The ID of the deleted invoice, prefixed `pay_`.",
+                      "example": "pay_xxxxxxxxxxxxxx",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "deleted"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "invoice deleted"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidParameters",
+            "description": "open invoice"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "missing permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "invoice not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "invoice:update"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "payment:charge"
+            ]
+          }
+        ],
+        "summary": "Delete Invoice",
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a receipt-backed invoice by its pay_ ID.",
+        "operationId": "retrieveInvoice",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            },
+            "description": "invoice"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "missing permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "invoice not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "payment:basic:read"
+            ]
+          }
+        ],
+        "summary": "Retrieve Invoice",
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ApiVersionDate"
+        },
+        {
+          "description": "The invoice's pay_ ID.",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "description": "Updates draft invoice items and billing fields. Updates of only `recipient_emails` and `memo` are also allowed on unpaid invoices. The customer is set when the draft is created and can't change. To bill someone else, first void the draft. Then create a new invoice. Edit customer contact details through the member API. A draft with no saved payment method and no scheduled send needs `invoice:update`, `invoice:create`, or `payment:charge`; every other update, and setting `payment_method_id`, needs `payment:charge`.",
+        "operationId": "updateInvoice",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "billing_address": {
+                    "additionalProperties": false,
+                    "description": "Create a billing address linked to this member.",
+                    "properties": {
+                      "city": {
+                        "example": "New York",
+                        "type": "string"
+                      },
+                      "country": {
+                        "description": "ISO 3166-1 alpha-2 country code.",
+                        "example": "US",
+                        "type": "string"
+                      },
+                      "line1": {
+                        "example": "123 Main St",
+                        "type": "string"
+                      },
+                      "line2": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "phone": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "postal_code": {
+                        "example": "10001",
+                        "type": "string"
+                      },
+                      "state": {
+                        "example": "NY",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "line1",
+                      "city",
+                      "postal_code",
+                      "country"
+                    ],
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "buyer_fee_percentage": {
+                    "description": "The buyer's adjustable fee in percentage points, with at most two decimal places: `0` for none, or between 5 and 100. The account keeps it, and Whop waives its take rate on the invoice.",
+                    "example": 5,
+                    "maximum": 100,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  "due_at": {
+                    "description": "When payment is due, as an ISO 8601 timestamp.",
+                    "format": "date-time",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "items": {
+                    "description": "The variants being invoiced, all in the same currency. Each variant may appear once. Use quantity for multiple units. A recurring variant must belong to a product. Its first invoice charges `initial_price` plus `renewal_price`. Later invoices charge only `renewal_price`. Paying the first invoice starts a paid billing period immediately, without the variant's trial. The subscription uses the `collection_method` the invoice was sent or issued with. A finite payment count includes the first paid invoice. With several items, every item that has a product must be a regular product, and all items need compatible payment, tax, and access settings.",
+                    "items": {
+                      "additionalProperties": false,
+                      "oneOf": [
+                        {
+                          "example": {
+                            "variant_id": "plan_xxxxxxxxxxxxxx"
+                          },
+                          "required": [
+                            "variant_id"
+                          ]
+                        },
+                        {
+                          "example": {
+                            "variant_id": "plan_xxxxxxxxxxxxxx"
+                          },
+                          "required": [
+                            "variant"
+                          ]
+                        }
+                      ],
+                      "properties": {
+                        "description": {
+                          "description": "Text shown under a custom charge on the invoice, its email, and its PDF, up to 1,000 characters. Line breaks are kept. Only for an item with `variant`, where it is saved as that variant's `description` and overrides `variant.description`. An item with `variant_id` shows its variant's own description and rejects this field.",
+                          "example": "Two-stage polish on every exterior panel.\nIncludes a paint depth report.",
+                          "maxLength": 1000,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "quantity": {
+                          "default": 1,
+                          "maximum": 999999,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "variant": {
+                          "additionalProperties": false,
+                          "description": "Find or create a variant inline by its attributes, using the payment API properties. Requires plan:create.",
+                          "properties": {
+                            "allow_multiple_quantity": {
+                              "description": "Whether more than one unit can be purchased in an order. Renewal variants cannot enable it. When `false`, checkouts, carts, and invoices reject a quantity above 1.",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "application_fee_amount": {
+                              "description": "Application fee the platform collects per unit, in the variant currency (5.00 means $5.00 for USD). Must be positive and below the initial price for one-time variants or renewal price for recurring variants. Paid to the parent account alongside other processing fees; collection is capped to remaining proceeds. Applies to subsequent payments on recurring variants. Only valid for subaccounts with a parent account.",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "billing_period": {
+                              "description": "A recurring variant's billing period in days, from 2 to 365, such as `45`.",
+                              "example": 45,
+                              "maximum": 365,
+                              "minimum": 2,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "billing_type": {
+                              "description": "Billing model for the variant.",
+                              "enum": [
+                                null,
+                                "renewal",
+                                "one_time"
+                              ],
+                              "example": "one_time",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "currency": {
+                              "description": "Currency code for the variant prices.",
+                              "enum": [
+                                "usd",
+                                "sgd",
+                                "inr",
+                                "aud",
+                                "brl",
+                                "cad",
+                                "dkk",
+                                "eur",
+                                "nok",
+                                "gbp",
+                                "sek",
+                                "chf",
+                                "hkd",
+                                "huf",
+                                "jpy",
+                                "mxn",
+                                "myr",
+                                "pln",
+                                "czk",
+                                "nzd",
+                                "aed",
+                                "eth",
+                                "ape",
+                                "cop",
+                                "ron",
+                                "thb",
+                                "bgn",
+                                "idr",
+                                "dop",
+                                "php",
+                                "try",
+                                "krw",
+                                "twd",
+                                "vnd",
+                                "pkr",
+                                "clp",
+                                "uyu",
+                                "ars",
+                                "zar",
+                                "dzd",
+                                "tnd",
+                                "mad",
+                                "kes",
+                                "kwd",
+                                "jod",
+                                "all",
+                                "xcd",
+                                "amd",
+                                "bsd",
+                                "bhd",
+                                "bob",
+                                "bam",
+                                "khr",
+                                "crc",
+                                "xof",
+                                "egp",
+                                "etb",
+                                "gmd",
+                                "ghs",
+                                "gtq",
+                                "gyd",
+                                "ils",
+                                "jmd",
+                                "mop",
+                                "mga",
+                                "mur",
+                                "mdl",
+                                "mnt",
+                                "nad",
+                                "ngn",
+                                "mkd",
+                                "omr",
+                                "pyg",
+                                "pen",
+                                "qar",
+                                "rwf",
+                                "sar",
+                                "rsd",
+                                "lkr",
+                                "tzs",
+                                "ttd",
+                                "uzs",
+                                "rub",
+                                "btc",
+                                "cny",
+                                "usdt",
+                                "kzt",
+                                "awg",
+                                "whop_usd",
+                                "xau"
+                              ],
+                              "example": "usd",
+                              "type": "string"
+                            },
+                            "description": {
+                              "description": "Variant description.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "expiration_days": {
+                              "description": "Days until access expires.",
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "force_create_new_plan": {
+                              "description": "Create a new variant instead of reusing a matching variant.",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "initial_price": {
+                              "description": "Additional amount charged on the first purchase, in the variant currency. For recurring variants without a trial, the first charge includes this amount plus renewal_price.",
+                              "example": 99,
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "internal_notes": {
+                              "description": "Internal notes for the account.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "override_tax_type": {
+                              "description": "Whether the variant's price includes tax: `inclusive` (tax is included in the price), `exclusive` (tax is added on top), or `unspecified`. Omit it or pass `null` to use the account's tax setting. On an account enrolled in the Whop tax service, `inclusive` or `exclusive` replaces the account's setting and `unspecified` keeps it. Otherwise it applies only where the account is the merchant of record: `inclusive` or `exclusive` replaces the account's setting when the account collects tax, and `unspecified` means the variant collects no tax. Where Whop is the merchant of record, the account's setting applies. Variants that differ only in this value are different variants.",
+                              "enum": [
+                                null,
+                                "exclusive",
+                                "inclusive",
+                                "unspecified"
+                              ],
+                              "example": "exclusive",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "product": {
+                              "description": "Find or create a product by external identifier. Mutually exclusive with product_id.",
+                              "properties": {
+                                "collect_shipping_address": {
+                                  "description": "Whether to collect a shipping address at checkout.",
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "custom_statement_descriptor": {
+                                  "description": "Custom card statement descriptor for the product, starting with WHOP*.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "description": {
+                                  "description": "Product description.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "external_identifier": {
+                                  "description": "Your unique identifier for the product.",
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                },
+                                "global_affiliate_percentage": {
+                                  "description": "Percentage of revenue paid to global affiliates.",
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "global_affiliate_status": {
+                                  "description": "Global affiliate program status.",
+                                  "enum": [
+                                    null,
+                                    "enabled",
+                                    "disabled"
+                                  ],
+                                  "example": "enabled",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "headline": {
+                                  "description": "Product headline.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "product_tax_code_id": {
+                                  "description": "Product tax code identifier.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "redirect_purchase_url": {
+                                  "description": "Where to redirect the buyer after purchase.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "route": {
+                                  "description": "Product route.",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "title": {
+                                  "description": "Product title.",
+                                  "pattern": "\\S",
+                                  "type": "string"
+                                },
+                                "visibility": {
+                                  "default": "hidden",
+                                  "description": "Product visibility. Defaults to hidden.",
+                                  "enum": [
+                                    "visible",
+                                    "hidden",
+                                    "archived",
+                                    "quick_link"
+                                  ],
+                                  "example": "visible",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "external_identifier",
+                                "title"
+                              ],
+                              "type": [
+                                "object",
+                                "null"
+                              ]
+                            },
+                            "product_id": {
+                              "description": "Existing product ID belonging to the account, prefixed `prod_`. Mutually exclusive with `product`.",
+                              "example": "prod_xxxxxxxxxxxxxx",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "renewal_price": {
+                              "description": "Recurring price in the variant currency.",
+                              "example": 45,
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "split_pay_required_payments": {
+                              "description": "How many payments a recurring variant collects before it stops billing, from 2 to 115. Only valid for `renewal` variants. `null` bills until the subscription is canceled.",
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "title": {
+                              "description": "Variant title.",
+                              "example": "Paint correction",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "trial_period_days": {
+                              "description": "Free trial days before renewal.",
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "visibility": {
+                              "description": "Whether the variant is visible to customers.",
+                              "enum": [
+                                null,
+                                "visible",
+                                "hidden",
+                                "archived",
+                                "quick_link"
+                              ],
+                              "example": "hidden",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "currency"
+                          ],
+                          "type": "object"
+                        },
+                        "variant_id": {
+                          "description": "An existing variant belonging to the account, identified by its plan_ ID.",
+                          "example": "plan_xxxxxxxxxxxxxx",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "mailing_address_id": {
+                    "description": "An address associated with the member. Mutually exclusive with billing_address.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "member_id": {
+                    "description": "The billed customer, a member of the account, prefixed `mber_`. The customer is set when the draft is created and can't change, so pass the draft's current customer or omit this field. A draft saved without a customer can take one here. Changing email recipients does not change this buyer.",
+                    "example": "mber_xxxxxxxxxxxxxx",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "memo": {
+                    "description": "A note to the customer, shown on the invoice email, PDF, and checkout page with its line breaks kept. Trimmed; `null` or blank clears it. Can be updated on draft, open, or uncollectible invoices.",
+                    "example": "Thanks for your business. Payment terms: net 30.",
+                    "maxLength": 1000,
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "metadata": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Up to 50 caller-owned string key/value pairs. The `invoice_memo` key is reserved and ignored; set `memo` instead.",
+                    "example": {
+                      "purchase_order": "PO-42"
+                    },
+                    "type": "object"
+                  },
+                  "payment_method_configuration": {
+                    "additionalProperties": false,
+                    "description": "The payment methods the customer can choose from when paying through the invoice's checkout link, in the shape a variant or checkout configuration takes. It takes precedence over the invoice's variants and the account, and changes neither. Send both lists. `null` uses its variants' payment methods. Can be updated on drafts.",
+                    "properties": {
+                      "disabled": {
+                        "description": "Payment method types explicitly disabled for this invoice. Use the `type` values from the payment method types catalogue. Types Whop no longer offers, and the read-only `unknown` placeholder, are dropped.",
+                        "example": [
+                          "klarna"
+                        ],
+                        "items": {
+                          "$ref": "#/components/schemas/PaymentMethodTypes"
+                        },
+                        "type": "array"
+                      },
+                      "enabled": {
+                        "description": "Payment method types explicitly enabled for this invoice. Use the `type` values from the payment method types catalogue. Types Whop no longer offers, and the read-only `unknown` placeholder, are dropped.",
+                        "example": [
+                          "card"
+                        ],
+                        "items": {
+                          "$ref": "#/components/schemas/PaymentMethodTypes"
+                        },
+                        "type": "array"
+                      },
+                      "include_platform_defaults": {
+                        "description": "Whether Whop's default set is the starting point. When `false`, only `enabled` is offered. Defaults to `true`.",
+                        "example": true,
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "disabled"
+                    ],
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "payment_method_id": {
+                    "description": "A saved payment method belonging to the member, prefixed `payt_`. Sending or issuing the invoice charges this method at the `charge_at` passed to that call, otherwise on `due_at`, or right away when there is no `due_at` or it has passed. Sending also emails the invoice now when the charge is later; issuing does not. Setting it needs `payment:charge`.",
+                    "example": "payt_xxxxxxxxxxxxxx",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "recipient_emails": {
+                    "description": "Email addresses saved for invoice delivery, independent of the billed customer. Saving them sends no email. Defaults to the customer email when omitted on create. Can be updated on draft, open, or uncollectible invoices.",
+                    "items": {
+                      "format": "email",
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            },
+            "description": "draft updated"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidParameters",
+            "description": "invoice already issued"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "missing permission"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "invoice:update"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "invoice:create"
+            ]
+          },
+          {
+            "bearerAuth": [
+              "payment:charge"
+            ]
+          }
+        ],
+        "summary": "Update Invoice",
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "x-whop-surface": "native"
+    },
+    "/invoices/{id}/sends": {
+      "get": {
+        "description": "Lists recorded invoice emails, most recent first. Each entry is a send, send again, scheduled send, reminder, or payment link after a failed charge. Each entry includes the addresses it went to and who sent it. Issuing without sending adds nothing. Entries appear after queuing. Addresses need `member:email:read`, and the sender needs `company:authorized_user:read`. History starts when recording is enabled and does not confirm inbox delivery.",
+        "operationId": "listInvoiceSends",
+        "parameters": [
+          {
+            "description": "Number of results to return from the start of the range.",
+            "in": "query",
+            "name": "first",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Number of results to return from the end of the range.",
+            "in": "query",
+            "name": "last",
+            "required": false,
+            "schema": {
+              "maximum": 100,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.",
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/InvoiceSend"
+                      },
+                      "type": "array"
+                    },
+                    "page_info": {
+                      "properties": {
+                        "end_cursor": {
+                          "example": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "has_next_page": {
+                          "example": false,
+                          "type": "boolean"
+                        },
+                        "has_previous_page": {
+                          "example": false,
+                          "type": "boolean"
+                        },
+                        "start_cursor": {
+                          "example": "WyJjdXJzb3IiLDFd",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "start_cursor",
+                        "end_cursor",
+                        "has_next_page",
+                        "has_previous_page"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "page_info"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "invoice sends"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "missing permission"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "invoice not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": [
+              "payment:basic:read"
+            ]
+          }
+        ],
+        "summary": "List Invoice Sends",
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/ApiVersionDate"
+        },
+        {
+          "description": "The invoice's pay_ ID.",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "x-whop-surface": "native"
     }
   },
   "components": {
@@ -9286,6 +10175,59 @@
           "user_id",
           "created_at",
           "author"
+        ],
+        "type": "object"
+      },
+      "InvoiceSend": {
+        "properties": {
+          "actor": {
+            "description": "The user who requested the send, when you have `company:authorized_user:read`. `null` for automatic sends, account API keys, apps, or when the caller cannot read team members. Whop employee identities are shown as Whop Team to external viewers.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UserSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "description": "How batches are classified: manual batches use `send` when no earlier completed email history exists and `resend` otherwise. Classification happens when history is recorded. Earlier unrecorded emails are unknown. Automatic sends use `scheduled_send` for a scheduled send and `reminder` for a reminder after the due date. They use `payment_follow_up` for the payment link after a charge to the saved payment method failed or needed the customer to act.",
+            "enum": [
+              "send",
+              "resend",
+              "scheduled_send",
+              "reminder",
+              "payment_follow_up"
+            ],
+            "example": "send",
+            "type": "string"
+          },
+          "recipient_count": {
+            "description": "How many addresses were submitted for delivery, each separately.",
+            "example": 2,
+            "type": "integer"
+          },
+          "recipients": {
+            "items": {
+              "description": "The addresses submitted for delivery: a snapshot of the customer email and the invoice's `recipient_emails` when the send was requested. Empty unless you have `member:email:read`.",
+              "example": "marcus@shinetime.example",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sent_at": {
+            "description": "When the worker finished submitting this batch for delivery, as an ISO 8601 timestamp. Partial batches are not recorded until a retry completes them. This does not confirm delivery to an inbox.",
+            "example": "2026-01-01T12:00:00.000Z",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "sent_at",
+          "recipient_count",
+          "recipients",
+          "actor"
         ],
         "type": "object"
       }

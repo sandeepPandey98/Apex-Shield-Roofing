@@ -1,12 +1,9 @@
 import { checkOrigin, jsonError, requireAdmin } from "./http";
 import { ApiError, whopAccount, whopRequest } from "./whop";
+import { invoiceCheckoutLink } from "./invoice-link";
 
 type Row = Record<string, any>;
 function text(value: unknown, fallback = "") { return typeof value === "string" ? value : fallback; }
-function safeLink(value: unknown) {
-  if (typeof value !== "string") return null;
-  try { const u = new URL(value); return u.protocol === "https:" && (u.hostname === "whop.com" || u.hostname.endsWith(".whop.com") || u.hostname.endsWith(".whop.app") || u.hostname.endsWith(".whop.site")) ? u.href : null; } catch { return null; }
-}
 export async function adminList(req: Request, kind: "tracking" | "leads" | "invoices") {
   try {
     checkOrigin(req);
@@ -47,7 +44,7 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
     } : {
       id: r.id, time: r.created_at, number: r.number, email: r.email_address || r.recipient_emails?.[0] || "",
       status: r.status, amount: r.amount_due?.amount, currency: r.amount_due?.currency || "usd",
-      link: safeLink(r.checkout_link),
+      link: invoiceCheckoutLink(r.checkout_link),
     });
     if (kind === "leads") rows.sort((a,b) => Date.parse(b.time) - Date.parse(a.time));
     return Response.json({source: "whop", scope: "account", environment: hostedTracking ? "production" : process.env.ROOFING_WHOP_ENVIRONMENT || process.env.WHOP_ENVIRONMENT || "sandbox", data: rows,
