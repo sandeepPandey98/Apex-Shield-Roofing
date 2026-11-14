@@ -652,3 +652,29 @@ test("embedded sign-in uses a secure partitioned cookie shared by all three acco
  assert.match(locked.headers.get("set-cookie")!,/^__Host-roofing_contractor_embed=;/);assert.match(locked.headers.get("set-cookie")!,/Max-Age=0/);
  const publicRequest=await session.POST(new Request("https://roofing.example/api/admin/session",{method:"POST",headers:{origin:"https://roofing.example","x-contractor-embed":"1"}}));assert.equal(publicRequest.status,401);
 });
+
+test("activity defaults to the three custom website events and all-view removes that filter",async()=>{
+ const {adminList}=await import("../lib/admin-data");
+ const request=(view:string)=>new Request(`http://localhost:3100/api/tracking?view=${view}`,{headers:{authorization:admin}});
+ assert.equal((await adminList(request("actions"),"tracking")).status,200);
+ assert.equal((await calls() as any)[0].query.event,"pixel.custom:estimate_requested,pixel.custom:service_viewed,pixel.custom:deposit_started");
+ await control("ok");
+ assert.equal((await adminList(request("all"),"tracking")).status,200);
+ assert.equal((await calls() as any)[0].query.event,undefined);
+ await control("ok");
+ assert.equal((await adminList(request("invalid"),"tracking")).status,400);
+ assert.equal((await calls()).length,0);
+});
+test("payment activity uses sandbox receipts rather than production pixel credentials",async()=>{
+ const {adminList}=await import("../lib/admin-data");
+ const previous=process.env.ROOFING_HOSTED_TRACKING;
+ process.env.ROOFING_HOSTED_TRACKING="true";
+ try {
+  const response=await adminList(new Request("http://localhost:3100/api/tracking?view=payments",{headers:{authorization:admin}}),"tracking");
+  assert.equal(response.status,200);const data=await response.json();
+  assert.equal(data.recordType,"payment");assert.equal(data.environment,"sandbox");assert.equal(data.data[0].event,"Payment · paid");assert.equal(data.data[0].value,"500.00");
+  assert.equal(JSON.stringify(data).includes("private@example.com"),false);assert.equal(JSON.stringify(data).includes("payt_private"),false);
+  const log=await calls() as any;assert.equal(log[0].path,"/api/v1/payments");assert.equal(log[0].injectKey,"none");assert.equal(log[0].hasAuthorization,true);assert.equal(log[0].query.from,undefined);assert.equal(log[0].query.to,undefined);
+  assert.equal(Date.parse(log[0].query.created_before)-Date.parse(log[0].query.created_after),86400000);
+ }finally {if(previous===undefined)delete process.env.ROOFING_HOSTED_TRACKING;else process.env.ROOFING_HOSTED_TRACKING=previous;}
+});

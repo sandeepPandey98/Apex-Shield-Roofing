@@ -2322,6 +2322,8 @@ textarea {
 .contractor-actions .button {min-height:42px;padding:11px 16px;font-size:12px;white-space:nowrap;gap:8px}
 .contractor-session-status {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid #e6eadf;padding-top:18px;margin-top:24px;font-size:13px;line-height:1.6}
 .contractor-refreshed {font-size:12px;color:#74847a}
+.contractor-activity-filter {display:flex;align-items:center;gap:12px;font-size:13px;margin:24px 0 0}
+.contractor-activity-filter select {padding:10px 14px;border:1px solid #cdd9cc;border-radius:6px;background:white;color:#153f35;max-width:100%}
 .contractor-refreshing {animation:contractor-refresh-spin 1s linear infinite}
 @keyframes contractor-refresh-spin {to {transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce) {.contractor-refreshing {animation:none}}

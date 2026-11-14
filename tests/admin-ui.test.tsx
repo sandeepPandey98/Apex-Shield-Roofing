@@ -86,3 +86,13 @@ it("blocked cookies keep the login form visible instead of falsely unlocking",as
  expect(host.textContent).toContain("browser blocked the sign-in cookie");
  expect(host.textContent).toContain("Unlock workspace");
 });
+it("activity selector requests website actions or payment records with separate explanations",async()=>{
+ authenticated=true;
+ await render("tracking");
+ expect(fetchMock.mock.calls.some(([url])=>url==="/api/tracking?view=actions")).toBe(true);
+ const select=host.querySelector('select[aria-label="Activity type"]')!;
+ await act(async()=>{(select as HTMLSelectElement).value="payments";select.dispatchEvent(new Event("change",{bubbles:true}));});
+ expect(fetchMock.mock.calls.some(([url])=>url==="/api/tracking?view=payments")).toBe(true);
+ expect(host.textContent).toContain("these are not pixel events");
+ expect(host.textContent).toContain("No payment records returned");
+});

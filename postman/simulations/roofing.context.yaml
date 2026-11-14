@@ -51,6 +51,13 @@ assumptions:
     verification: 39 server/client checks passed with 163 HTTP simulation entries including controls. Two React UI tests passed for stable exclusive SDK slots through success and containment of a widget render failure. No new payment was created during diagnosis or recovery.
     source: app/api/verify/route.ts; app/checkout/complete/page.tsx; components/WhopPaymentForm.tsx; components/WhopCheckoutModal.tsx; tests/checkout-ui.test.tsx
     updated_at: "2026-11-13"
+  - id: activity-source-selection
+    status: supported
+    claim: Website-action filtering and payment receipt activity use different Whop resources and configured credentials.
+    reason: The live production event list contained all three custom names, and a filtered request returned those records without dashboard noise. Sandbox transaction activity reads payment receipts rather than relying on production pixel purchase attribution.
+    verification: Local route tests assert upstream custom-name filters, all-event selection, sandbox payment credentials, time bounds, and removal of private customer/payment-method fields. UI tests verify the selector changes requests and explains the source distinction. Browser verification of the deployed update is recorded in docs/VERIFICATION.md.
+    source: lib/admin-data.ts; components/ContractorAdmin.tsx; tests/routes.test.ts; tests/admin-ui.test.tsx; https://docs.whop.com/developer/websites/tracking.md; docs/whop-api-contract.json
+    updated_at: "2026-11-14"
 fingerprints:
   - id: initial-verification
     date: "2026-11-13"

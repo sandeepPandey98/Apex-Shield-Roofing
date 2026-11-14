@@ -9,9 +9,12 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
     checkOrigin(req);
     requireAdmin(req);
     const incoming = new URL(req.url).searchParams;
+    const view = incoming.get("view") || "actions";
+    if (kind === "tracking" && !["actions", "payments", "all"].includes(view)) throw new ApiError("Invalid activity view.",400);
+    const paymentActivity = kind === "tracking" && view === "payments";
     const after = incoming.get("after");
     if (after && after.length > 2048) throw new ApiError("Invalid pagination cursor.", 400);
-    const hostedTracking = kind === "tracking" && process.env.ROOFING_HOSTED_TRACKING === "true";
+    const hostedTracking = kind === "tracking" && !paymentActivity && process.env.ROOFING_HOSTED_TRACKING === "true";
     const account = hostedTracking ? process.env.WHOP_ACCOUNT_ID || process.env.ROOFING_TRACKING_ACCOUNT_ID : whopAccount();
     if (!account?.startsWith("biz_")) throw new ApiError("Tracking account is not configured.", 503);
     const params = new URLSearchParams({ account_id: account, first: "100" });
@@ -25,11 +28,17 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
       params.set("to", to.toISOString());
       params.set("from", new Date(to.getTime() - 86400000).toISOString());
       params.set("direction", "desc");
+      if (paymentActivity) {
+        params.set("created_after",params.get("from")!); params.set("created_before",params.get("to")!);
+        params.delete("from"); params.delete("to");
+      } else if (view === "actions") params.set("event", "pixel.custom:estimate_requested,pixel.custom:service_viewed,pixel.custom:deposit_started");
     }
-    const result = await whopRequest<{data: Row[]; page_info: Row}>(`/${kind === "tracking" ? "events" : kind === "leads" ? "members" : kind}?${params}`, undefined, undefined, undefined, hostedTracking ? "hosted" : "configured");
+    const result = await whopRequest<{data: Row[]; page_info: Row}>(`/${kind === "tracking" ? paymentActivity ? "payments" : "events" : kind === "leads" ? "members" : kind}?${params}`, undefined, undefined, undefined, hostedTracking ? "hosted" : "configured");
     if (!Array.isArray(result.data)) throw new ApiError("Whop returned an unreadable list.");
     const records = kind === "leads" ? result.data.filter((r) => r.metadata?.roofing_source === "whop_roofing_website") : result.data;
-    const rows = records.map((r) => kind === "tracking" ? {
+    const rows = records.map((r) => paymentActivity ? {
+      id:r.id,time:r.created_at,event:`Payment · ${text(r.substatus) || text(r.status,"unknown")}`,page:"Whop payment record",value:r.total?.amount ?? null,currency:r.total?.currency || r.currency || "usd",
+    } : kind === "tracking" ? {
       id: r.id, time: r.event_time, event: text(r.custom_name) || text(r.event_name, "Unknown event"),
       page: text(r.path, "/"), value: r.value ?? r.total_usd_amount ?? null,
       currency: r.currency || "usd",
@@ -49,7 +58,7 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
     if (kind === "leads") rows.sort((a,b) => Date.parse(b.time) - Date.parse(a.time));
     return Response.json({source: "whop", scope: "account", environment: hostedTracking ? "production" : process.env.ROOFING_WHOP_ENVIRONMENT || process.env.WHOP_ENVIRONMENT || "sandbox", data: rows,
       nextCursor: result.page_info?.has_next_page ? result.page_info.end_cursor : null,
-      ...(kind === "tracking" ? {to: params.get("to"), from: params.get("from")} : {}),
+      ...(kind === "tracking" ? {view,recordType:paymentActivity ? "payment" : "pixel",to: params.get(paymentActivity ? "created_before" : "to"), from: params.get(paymentActivity ? "created_after" : "from")} : {}),
     }, {headers: {"Cache-Control": "private, no-store", "Vary": "Cookie, Authorization"}});
   } catch (error) {
     if (error instanceof ApiError && (error.upstreamStatus === 401 || error.upstreamStatus === 403))

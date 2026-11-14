@@ -10,17 +10,17 @@ http.createServer(async (req,res) => {
  if(path==='/__note_count')return send(200,{count:(await pm.state.get('whop.noteCount'))||0});
  if (path === '/__setup_count') return send(200,{count:(await pm.state.get('whop.setupCount')) || 0});
  if (path === '/__calls') return send(200,(await pm.state.get('whop.calls')) || []);
- const calls = (await pm.state.get('whop.calls')) || [];calls.push({method:req.method,path,body,key:req.headers['idempotency-key'],injectKey:req.headers['x-whop-inject-key'],hasAuthorization:Boolean(req.headers.authorization)});await pm.state.set('whop.calls',calls);
+ const calls = (await pm.state.get('whop.calls')) || [];calls.push({method:req.method,path,query:Object.fromEntries(new URL(req.url,"http://mock").searchParams),body,key:req.headers['idempotency-key'],injectKey:req.headers['x-whop-inject-key'],hasAuthorization:Boolean(req.headers.authorization)});await pm.state.set('whop.calls',calls);
  const mode = (await pm.state.get('whop.mode'));
  if (mode === 'html') {res.writeHead(502,{'Content-Type':'text/html'});return res.end('<h1>Bad gateway</h1>');}
  if (mode === 'busy') return send(429,{error:{message:'Too many requests'}});
  if (mode === 'unavailable') return send(503,{error:{message:'Unavailable'}});
- if (req.method === 'GET' && ['/api/v1/events','/api/v1/members','/api/v1/invoices'].includes(path)) {
+ if (req.method === 'GET' && ['/api/v1/events','/api/v1/members','/api/v1/invoices','/api/v1/payments'].includes(path)) {
   if(mode==='read-forbidden')return send(403,{error:{message:'Missing read permission'}});
   const query=new URL(req.url,'http://mock').searchParams;
   if(query.get('account_id')!=='biz_demo')return send(400,{error:{message:'Account required'}});
   if(path==='/api/v1/events' && (!query.get('from') || !query.get('to')))return send(400,{error:{message:'Time range required'}});
-  const data=path==='/api/v1/events' ? [{id:'evt_test',event_time:'2026-11-13T00:00:00Z',event_name:'pixel.custom',custom_name:'service_viewed',path:'/services',value:149,currency:'usd',user:{email:'private@example.com'},person_id:'private_person'}] : path==='/api/v1/members' ? [{id:'mber_test',created_at:'2026-11-13T00:00:00Z',metadata:{roofing_source:'whop_roofing_website',roofing_full_name:'Test homeowner',roofing_service:'Inspection',roofing_address:'Sample address'}},{id:'mber_unrelated',metadata:{},display_name:'Not an estimate'}] : [{id:'invoice_test',number:'INV-001',status:'open',amount_due:{amount:'500.00',currency:'usd'},checkout_link:'javascript:alert(1)'},{id:'pay_invoice02',status:'open',amount_due:{amount:'100.00',currency:'usd'},checkout_link:'pay_invoice02.c2lnbmVkLw==--abc123'}];
+  const data=path==='/api/v1/payments' ? [{id:'pay_activity',created_at:'2026-11-13T00:00:00Z',status:'paid',substatus:'paid',total:{amount:'500.00',currency:'usd'},email:'private@example.com',payment_method:{id:'payt_private'}}] : path==='/api/v1/events' ? [{id:'evt_test',event_time:'2026-11-13T00:00:00Z',event_name:'pixel.custom',custom_name:'service_viewed',path:'/services',value:149,currency:'usd',user:{email:'private@example.com'},person_id:'private_person'}] : path==='/api/v1/members' ? [{id:'mber_test',created_at:'2026-11-13T00:00:00Z',metadata:{roofing_source:'whop_roofing_website',roofing_full_name:'Test homeowner',roofing_service:'Inspection',roofing_address:'Sample address'}},{id:'mber_unrelated',metadata:{},display_name:'Not an estimate'}] : [{id:'invoice_test',number:'INV-001',status:'open',amount_due:{amount:'500.00',currency:'usd'},checkout_link:'javascript:alert(1)'},{id:'pay_invoice02',status:'open',amount_due:{amount:'100.00',currency:'usd'},checkout_link:'pay_invoice02.c2lnbmVkLw==--abc123'}];
   return send(200,{data:mode==='empty'?[]:data,page_info:{has_next_page:mode==='page',end_cursor:'next_page'}});
  }
  if (req.method === 'POST' && path === '/api/v1/members') {
