@@ -85,12 +85,12 @@ test("estimate saves a native Whop member note and preserves customer metadata",
   assert.equal(log.some(x=>x.path==="/api/v1/leads"),false);
   assert.notEqual(log[0].key,log[1].key);
 });
-test("out-of-area lead is rejected before contacting Whop", async () => {
-  assert.equal(
-    (await leads(req("leads", { ...lead, zipCode: "99999" }))).status,
-    422,
-  );
-  assert.equal((await calls()).length, 0);
+test("estimates accept a valid ZIP outside the demo service area", async () => {
+  const response = await leads(req("leads", {...lead,zipCode:"94105"}));
+  assert.equal(response.status,200);
+  const log=await calls();
+  const content=JSON.parse(String(log[1].body.content).split("\n").slice(1).join("\n"));
+  assert.equal(content.zip_code,"94105");
 });
 test("deposits cannot charge without card saving consent", async () => {
   assert.equal(

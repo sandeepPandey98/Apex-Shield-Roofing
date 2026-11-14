@@ -28,7 +28,6 @@ export const SITE_CONFIG = {
       "Lakeway",
       "Pflugerville",
     ],
-    zipCodes: ["78701", "78704", "78745", "78664", "78613", "78626", "78734"],
   },
   financing: {
     headline: "A stronger roof. A little more flexibility.",

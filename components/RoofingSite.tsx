@@ -45,9 +45,7 @@ export function RoofingSite() {
   const finalBalanceRef = useRef<HTMLDetailsElement>(null);
   const [menu, setMenu] = useState(false),
     [service, setService] = useState<ServiceItem | null>(null),
-    [admin, setAdmin] = useState(false),
-    [zip, setZip] = useState(""),
-    [zipResult, setZipResult] = useState("");
+    [admin, setAdmin] = useState(false);
   const closeCheckout = useCallback(() => setService(null), []),
     closeAdmin = useCallback(() => setAdmin(false), []);
   function book(item: ServiceItem) {
@@ -397,41 +395,12 @@ export function RoofingSite() {
                   </span>
                 ))}
               </div>
-              <form
-                className="zip-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setZipResult(
-                    SITE_CONFIG.serviceArea.zipCodes.includes(zip)
-                      ? "Good news — your ZIP is in our service area. Request an estimate below."
-                      : "Your ZIP is outside our listed coverage. Call us to discuss your property.",
-                  );
-                }}
-              >
-                <label htmlFor="zip-check">Are we in your neighborhood?</label>
-                <div>
-                  <input
-                    id="zip-check"
-                    placeholder="Enter your ZIP code"
-                    aria-label="Service area ZIP code"
-                    value={zip}
-                    onChange={(e) => {
-                      setZip(e.target.value.replace(/\D/g, "").slice(0, 5));
-                      setZipResult("");
-                    }}
-                    inputMode="numeric"
-                    pattern="[0-9]{5}"
-                    maxLength={5}
-                    required
-                  />
-                  <button className="button primary">
-                    Check ZIP <ArrowUpRight size={16} />
-                  </button>
-                </div>
-                <p className="zip-result" role="status">
-                  {zipResult}
-                </p>
-              </form>
+              <div className="area-inquiry">
+                <p>Have a project in mind? Tell us about your property.</p>
+                <a className="button primary" href="#estimate">
+                  Request a free estimate <ArrowUpRight size={16} />
+                </a>
+              </div>
             </div>
             <div
               className="area-art"
@@ -472,7 +441,7 @@ export function RoofingSite() {
                 <span className="green-dot" /> OUR CENTRAL TEXAS COMMUNITY
               </span>
               <small className="map-disclaimer">
-                Illustrative coverage · check your ZIP for eligibility
+                Illustrative service area · contact us about your project
               </small>
             </div>
           </div>

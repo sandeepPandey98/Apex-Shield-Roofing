@@ -30,7 +30,7 @@ Status: local implementation complete; account integration and hosted acceptance
 
 1. Show the Whop-hosted URL and responsive landing page.
 2. Open `config/site.ts`; explain how one contractor is rebranded.
-3. Show the three service prices, ZIP success/failure, and an estimate request appearing in the Whop account.
+3. Show the three service prices, the service-area overview, and an estimate request appearing in the Whop account.
 4. Complete an eligible sandbox deposit with the card-saving disclosure, then show the receipt and saved method in Whop.
 5. Use the authenticated contractor panel to invoice a remaining balance and show its real status in Whop.
 6. Show all three analytics events delivered to Whop.
@@ -38,7 +38,7 @@ Status: local implementation complete; account integration and hosted acceptance
 
 ## Submission text to complete after account checks
 
-> Built a reusable roofing contractor website template with configurable branding, inspection/repair/replacement services, ZIP eligibility, quote capture, and Whop payments. Replacement deposits support explicit off-session payment-method saving; the authenticated contractor workspace creates and sends or issues final-balance invoices. Includes typed validation, server receipt verification, analytics hooks, a Whop hosting bundle, and setup documentation.
+> Built a reusable roofing contractor website template with configurable branding, inspection/repair/replacement services, service-area information, quote capture, and Whop payments. Replacement deposits support explicit off-session payment-method saving; the authenticated contractor workspace creates and sends or issues final-balance invoices. Includes typed validation, server receipt verification, analytics hooks, a Whop hosting bundle, and setup documentation.
 >
 > Live URL: [fill with actual returned URL]
 > Source: [fill with actual repository]

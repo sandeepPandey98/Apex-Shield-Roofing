@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { adminList } from "@/lib/admin-data";
-import { DEMO_MODE, SITE_CONFIG } from "@/config/site";
+import { DEMO_MODE } from "@/config/site";
 import { leadSchema } from "@/lib/validation";
 import { ApiError, whopAccount, whopRequest } from "@/lib/whop";
 import { sendEstimateConfirmation } from "@/lib/estimate-email";
@@ -16,11 +16,6 @@ export async function POST(req: Request) {
     checkOrigin(req);
     limitLeads(req);
     const input = leadSchema.parse(await readBody(req));
-    if (!SITE_CONFIG.serviceArea.zipCodes.includes(input.zipCode))
-      throw new ApiError(
-        "This ZIP is outside our listed service area. Please call us to discuss your property.",
-        422,
-      );
     if (DEMO_MODE)
       return Response.json({
         success: true,

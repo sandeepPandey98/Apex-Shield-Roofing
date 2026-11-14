@@ -21,7 +21,7 @@ Open http://127.0.0.1:3100. No credentials are needed for the demo. For a produc
 
 - Responsive roofing landing page, mobile navigation, service cards, process, financing explanation, reviews, FAQs and estimate form.
 - Three configured services: $149 inspection, $399 repair, $500 replacement deposit.
-- Service-area ZIP validation on the client and server.
+- Service-area overview and estimate capture for any valid US ZIP code.
 - Whop Elements checkout with PaymentElement, EmailElement and BrandingElement. Separate ExpressCheckoutElement for inspection and repair. For deposits, wallets are offered through PaymentElement where eligible; standalone express checkout is intentionally omitted because its Checkout provider does not expose the required card-saving option.
 - Explicit off-session authorization on deposits, server-selected service plans, confirmation token payments, and server-side receipt verification. After the deposit is paid, an explicit Whop setup intent re-verifies the existing method; server verification must succeed before confirming card-on-file readiness. See [docs/SETUP-INTENTS.md](docs/SETUP-INTENTS.md).
 - Lead capture through the current Whop `/leads` endpoint. Homeowner contact and property details are attached as metadata; the current lead schema does not have top-level name/email/phone fields. The server resolves/creates a Whop member first and passes its user ID to the lead endpoint. This requires `member:manage` in addition to the lead permissions.
@@ -32,7 +32,7 @@ Open http://127.0.0.1:3100. No credentials are needed for the demo. For a produc
 
 ## White labeling
 
-Edit `config/site.ts` for company information, contact details, covered ZIPs, services, prices, reviews and FAQs. Keep public plan IDs consistent with the amounts configured in Whop. Set `demoBrand` to false only after replacing sample reviews and verifying all business claims. Check the static Whop HTML title/description in `index.html` if changing the brand.
+Edit `config/site.ts` for company information, contact details, service-area cities, services, prices, reviews and FAQs. Keep public plan IDs consistent with the amounts configured in Whop. Set `demoBrand` to false only after replacing sample reviews and verifying all business claims. Check the static Whop HTML title/description in `index.html` if changing the brand.
 
 ## Connect Whop sandbox
 

@@ -738,35 +738,7 @@ em {
 .city-list svg {
   color: #8a9d88;
 }
-.zip-form label {
-  font-size: 12px;
-  font-weight: 600;
-  display: block;
-  margin-bottom: 10px;
-}
-.zip-form > div {
-  display: flex;
-  gap: 8px;
-  max-width: 385px;
-}
-.zip-form input {
-  width: 100%;
-  min-width: 0;
-  background: white;
-}
-.zip-form .button {
-  white-space: nowrap;
-  min-height: 44px;
-  padding: 12px 16px;
-  font-size: 11px;
-  gap: 12px;
-}
-.zip-result {
-  min-height: 43px;
-  font-size: 11px !important;
-  margin-top: 10px;
-  line-height: 1.5;
-}
+.area-inquiry .button {margin-top:4px}
 .area-art {
   height: 410px;
   background: #eef0e7;
@@ -2084,15 +2056,6 @@ textarea {
   .city-list {
     font-size: 11px;
     gap: 12px;
-  }
-  .zip-form > div {
-    max-width: 100%;
-  }
-  .zip-form .button {
-    font-size: 10px;
-  }
-  .zip-result {
-    min-height: 0;
   }
   .area-art {
     height: 335px;
