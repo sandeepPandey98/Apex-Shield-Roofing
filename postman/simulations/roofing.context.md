@@ -97,3 +97,7 @@ Admin session exchange is local application authentication; it never sends the c
 ## Lead creation retired — 2026-11-14
 
 Actual sandbox POST /leads returned 410 gone with an explicit migration to POST /members. Replaced creation with existing-member resolution, a stable idempotent member note, a fresh member read and PATCH of merged namespaced metadata. Current contract includes members and notes paths from the official live OpenAPI. Stand-in now returns 410 for lead creation; tests assert the application never calls it. Added metadata preservation, 2,000-character notes, repeat submission, partial indexing failure and edited-form keys coverage. Actual local application returned 200 against sandbox and the authenticated estimate list returned the saved property data. Original bounty's legacy Lead criterion requires owner clarification.
+
+## Hosted credential routing — 2026-11-14
+
+Whop hosting replaces outbound Authorization unless x-whop-inject-key: none is sent. Explicit sandbox calls now opt out and read the custom ROOFING_WHOP_API_KEY binding, because the native WHOP_API_KEY secret name is reserved. Hosted pixel reads opt into the automatically injected company credential and scope to the hosting business instead of the sandbox merchant. Simulation tests distinguish both paths and assert the explicit credential is absent from hosted tracking requests. Fifty API/workflow checks pass.

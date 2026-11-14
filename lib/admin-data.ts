@@ -14,7 +14,10 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
     const incoming = new URL(req.url).searchParams;
     const after = incoming.get("after");
     if (after && after.length > 2048) throw new ApiError("Invalid pagination cursor.", 400);
-    const params = new URLSearchParams({ account_id: whopAccount(), first: "100" });
+    const hostedTracking = kind === "tracking" && process.env.ROOFING_HOSTED_TRACKING === "true";
+    const account = hostedTracking ? process.env.WHOP_ACCOUNT_ID || process.env.ROOFING_TRACKING_ACCOUNT_ID : whopAccount();
+    if (!account?.startsWith("biz_")) throw new ApiError("Tracking account is not configured.", 503);
+    const params = new URLSearchParams({ account_id: account, first: "100" });
     if (after) params.set("after", after);
     if (kind === "tracking") {
       // Keep the original window when moving between pages.
@@ -26,7 +29,7 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
       params.set("from", new Date(to.getTime() - 86400000).toISOString());
       params.set("direction", "desc");
     }
-    const result = await whopRequest<{data: Row[]; page_info: Row}>(`/${kind === "tracking" ? "events" : kind === "leads" ? "members" : kind}?${params}`);
+    const result = await whopRequest<{data: Row[]; page_info: Row}>(`/${kind === "tracking" ? "events" : kind === "leads" ? "members" : kind}?${params}`, undefined, undefined, undefined, hostedTracking ? "hosted" : "configured");
     if (!Array.isArray(result.data)) throw new ApiError("Whop returned an unreadable list.");
     const records = kind === "leads" ? result.data.filter((r) => r.metadata?.roofing_source === "whop_roofing_website") : result.data;
     const rows = records.map((r) => kind === "tracking" ? {
@@ -47,7 +50,7 @@ export async function adminList(req: Request, kind: "tracking" | "leads" | "invo
       link: safeLink(r.checkout_link),
     });
     if (kind === "leads") rows.sort((a,b) => Date.parse(b.time) - Date.parse(a.time));
-    return Response.json({source: "whop", scope: "account", environment: process.env.WHOP_ENVIRONMENT || "sandbox", data: rows,
+    return Response.json({source: "whop", scope: "account", environment: hostedTracking ? "production" : process.env.ROOFING_WHOP_ENVIRONMENT || process.env.WHOP_ENVIRONMENT || "sandbox", data: rows,
       nextCursor: result.page_info?.has_next_page ? result.page_info.end_cursor : null,
       ...(kind === "tracking" ? {to: params.get("to"), from: params.get("from")} : {}),
     }, {headers: {"Cache-Control": "private, no-store", "Vary": "Cookie, Authorization"}});

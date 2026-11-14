@@ -1,5 +1,7 @@
 # Apex Shield · Whop roofing website template
 
+Live demo: https://apex-shield-roofing-demo.whop.site · payments and estimates use the sandbox. See [deployment configuration](docs/DEPLOYMENT.md).
+
 > Current estimate capture uses Whop Members + private customer notes + metadata. Whop’s former POST /leads now returns HTTP 410. See [migration evidence and bounty implications](docs/LEADS-MIGRATION.md).
 
 A separate project for the US Roofing Website Template workforce bounty. The supplied business, reviews, license number and phone are illustrative. **The site starts in demo mode: it validates requests but never creates leads, invoices, or payments.**

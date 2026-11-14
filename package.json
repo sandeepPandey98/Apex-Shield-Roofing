@@ -13,7 +13,8 @@
     "dev:whop": "vite --host 127.0.0.1 --port 3101",
     "deploy:whop": "npm run build:whop && whop apps deploy --skip_build true",
     "preview:whop": "vite preview --host 127.0.0.1 --port 3101",
-    "test:ui": "vitest run --config vitest.config.ts"
+    "test:ui": "vitest run --config vitest.config.ts",
+    "deploy": "npm run deploy:whop"
   },
   "keywords": [],
   "author": "",

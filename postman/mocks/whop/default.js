@@ -10,7 +10,7 @@ http.createServer(async (req,res) => {
  if(path==='/__note_count')return send(200,{count:(await pm.state.get('whop.noteCount'))||0});
  if (path === '/__setup_count') return send(200,{count:(await pm.state.get('whop.setupCount')) || 0});
  if (path === '/__calls') return send(200,(await pm.state.get('whop.calls')) || []);
- const calls = (await pm.state.get('whop.calls')) || [];calls.push({method:req.method,path,body,key:req.headers['idempotency-key']});await pm.state.set('whop.calls',calls);
+ const calls = (await pm.state.get('whop.calls')) || [];calls.push({method:req.method,path,body,key:req.headers['idempotency-key'],injectKey:req.headers['x-whop-inject-key'],hasAuthorization:Boolean(req.headers.authorization)});await pm.state.set('whop.calls',calls);
  const mode = (await pm.state.get('whop.mode'));
  if (mode === 'html') {res.writeHead(502,{'Content-Type':'text/html'});return res.end('<h1>Bad gateway</h1>');}
  if (mode === 'busy') return send(429,{error:{message:'Too many requests'}});

@@ -67,6 +67,7 @@ test("estimate saves a native Whop member note and preserves customer metadata",
   assert.equal(log.length, 4);
   assert.equal(log[0].path, "/api/v1/members");
   assert.equal(log[0].body.email, lead.email);
+  assert.equal((log[0] as any).injectKey, "none");
   assert.equal(log[0].body.name, lead.fullName);
   assert.equal(log[1].path, "/api/v1/members/mber_lead01/notes");
   const content=JSON.parse(String(log[1].body.content).split("\n").slice(1).join("\n"));
@@ -571,4 +572,18 @@ test("changed estimate details produce a fresh request key; retrying failed inde
  assert.equal((await leads(estimateReq({...lead,address:"456 Another Street"}))).status,200);
  const log=await calls();
  assert.notEqual(log[5].key,original);
+});
+
+
+test("hosted pixel reads use the hosting business and injected credential while checkout stays sandbox",async()=>{
+ const {adminList}=await import("../lib/admin-data");
+ const previous={flag:process.env.ROOFING_HOSTED_TRACKING,account:process.env.WHOP_ACCOUNT_ID,sandbox:process.env.NEXT_PUBLIC_WHOP_ACCOUNT_ID};
+ try {
+  process.env.ROOFING_HOSTED_TRACKING="true";process.env.WHOP_ACCOUNT_ID="biz_demo";process.env.NEXT_PUBLIC_WHOP_ACCOUNT_ID="biz_sandbox_other";
+  const response=await adminList(new Request("http://localhost:3100/api/tracking",{headers:{authorization:admin}}),"tracking");
+  assert.equal(response.status,200);assert.equal((await response.json()).environment,"production");
+  const log=await calls();assert.equal((log[0] as any).hasAuthorization,false);assert.equal((log[0] as any).injectKey,undefined);
+ }finally{
+  for(const [k,v] of [["ROOFING_HOSTED_TRACKING",previous.flag],["WHOP_ACCOUNT_ID",previous.account],["NEXT_PUBLIC_WHOP_ACCOUNT_ID",previous.sandbox]])if(v===undefined)delete process.env[k!];else process.env[k!]=v;
+ }
 });

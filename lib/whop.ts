@@ -19,10 +19,11 @@ export async function whopRequest<T = Record<string, unknown>>(
   body?: unknown,
   key?: string,
   method?: "PATCH",
+  credential: "configured" | "hosted" = "configured",
 ): Promise<T> {
-  const apiKey = process.env.WHOP_API_KEY;
-  if (!apiKey) throw new ApiError("Whop credentials are not configured.", 503);
-  const environment = process.env.WHOP_ENVIRONMENT || "sandbox";
+  const apiKey = process.env.ROOFING_WHOP_API_KEY || process.env.WHOP_API_KEY;
+  if (!apiKey && credential !== "hosted") throw new ApiError("Whop credentials are not configured.", 503);
+  const environment = credential === "hosted" ? "production" : process.env.ROOFING_WHOP_ENVIRONMENT || process.env.WHOP_ENVIRONMENT || "sandbox";
   if (!["sandbox", "production"].includes(environment))
     throw new ApiError("Invalid Whop environment.", 503);
   const base =
@@ -36,7 +37,8 @@ export async function whopRequest<T = Record<string, unknown>>(
     response = await fetch(`${base}${path}`, {
       method: method || (body === undefined ? "GET" : "POST"),
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        // Sandbox calls keep the explicit key; hosted analytics uses Whop’s injected key.
+        ...(credential === "hosted" ? {} : {Authorization: `Bearer ${apiKey}`, "x-whop-inject-key": "none"}),
         "Content-Type": "application/json",
         "Api-Version-Date": "2026-11-12",
         ...(key ? { "Idempotency-Key": key } : {}),

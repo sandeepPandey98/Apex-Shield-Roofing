@@ -1,5 +1,5 @@
 {
-  "name": "roofing-website-template",
+  "name": "apex-shield-roofing-demo",
   "main": "whop/worker.ts",
   "compatibility_date": "2026-11-13",
   "compatibility_flags": ["nodejs_compat"],

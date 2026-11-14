@@ -21,7 +21,7 @@ Status: local implementation complete; account integration and hosted acceptance
 - [x] Actual sandbox Whop lead retrieved through the API with linked user and submitted contact/property metadata.
 - [ ] Actual invoice link sent and/or authorized saved-method invoice settled in sandbox.
 - [ ] Actual Whop pixel/network event delivery demonstrated.
-- [ ] Whop deployment authenticated, uploaded and reachable at returned HTTPS URL.
+- [x] Whop deployment authenticated, uploaded and reachable at https://apex-shield-roofing-demo.whop.site (current hosting suffix differs from the original bounty).
 - [ ] Hosted mobile/desktop console and layout checks completed.
 - [ ] Source repository URL and walkthrough video supplied.
 - [ ] Bounty submission posted by the user.
