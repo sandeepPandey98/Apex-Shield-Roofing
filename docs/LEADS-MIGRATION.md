@@ -21,3 +21,11 @@ A real existing sandbox test estimate was submitted through the local applicatio
 The original bounty explicitly asks for a Lead created through the Leads API. That exact legacy operation now returns 410, so the supported Members migration should be disclosed and acceptance confirmed with the bounty owner. Do not claim this creates a legacy Lead.
 
 Official Members API and notes/metadata reference: https://docs.whop.com/api-reference/members/member
+
+## Reversible native Leads API test mode
+
+Set the server-only `ESTIMATE_CAPTURE_MODE=leads_api` to test native Lead creation in sandbox. `members` (the default) retains the working notes/metadata capture. Both implementations remain in source. Mode changes need a local server restart; use `.dev.vars` for Whop Vite development and `.env.local` for Next. The local private files are currently set to `leads_api`; the hosted runtime stays on the default Members mode.
+
+Native mode resolves the customer's Whop user ID through Members, then calls POST /leads with account_id, user_id and the estimate metadata. It does not write Members notes/metadata or silently fall back. Success requires a returned lead_ ID, matching user identity and valid creation time. Only confirmed success can trigger a confirmation email or the frontend estimate_requested event. The admin estimate list selects GET /leads and labels the returned source when this mode is active. Native test mode refuses production credentials/environment.
+
+On 2026-11-14, a new real sandbox call through the application returned HTTP 410 and whop_leads_unavailable. No native Lead, fallback estimate note/index, or email was created. An existing sandbox customer was reused for identity resolution. This is a provider rejection, not proof that literal bounty compliance has been achieved. To restore the local working capture, set ESTIMATE_CAPTURE_MODE=members in both private files and restart the development server. No stored estimates are deleted by either mode switch.

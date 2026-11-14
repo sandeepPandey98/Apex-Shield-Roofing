@@ -62,6 +62,7 @@ const invoice = {
 };
 beforeEach(async () => {
  await control("ok",true);
+ process.env.ESTIMATE_CAPTURE_MODE="members";
  process.env.RESEND_API_KEY="";process.env.ESTIMATE_EMAIL_FROM="";delete process.env.ESTIMATE_EMAIL_REPLY_TO;
  await fetch("http://127.0.0.1:4110/resend/__control",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reset:true})});
 });
@@ -706,4 +707,25 @@ test("rejected or unreadable email responses preserve the saved estimate and exp
 });
 test("email is never attempted when the Whop estimate could not be saved",async()=>{
  configureTestEmail();await control("unavailable");assert.equal((await leads(emailLeadRequest())).status,502);assert.equal((await emailCalls()).calls.length,0);
+});
+
+test("native Leads API test mode reports 410 without saving Members notes or sending email",async()=>{
+ process.env.ESTIMATE_CAPTURE_MODE="leads_api";configureTestEmail();
+ const request=emailLeadRequest();request.headers.set("x-forwarded-for","192.0.2.112");
+ const response=await leads(request);assert.equal(response.status,410);const data=await response.json();assert.equal(data.success,undefined);assert.equal(data.code,"whop_leads_unavailable");
+ const log=await calls();assert.deepEqual(log.map(x=>x.path),["/api/v1/members","/api/v1/leads"]);assert.equal(log[1].body.user_id,"user_lead01");assert.equal(log[1].body.metadata.roofing_zip,lead.zipCode);assert.equal((await emailCalls()).calls.length,0);
+ process.env.ESTIMATE_CAPTURE_MODE="members";
+ const restored=emailLeadRequest();restored.headers.set("x-forwarded-for","192.0.2.112");const result=await leads(restored);assert.equal(result.status,200);assert.equal((await result.json()).storage,"whop_members");
+});
+test("native Lead success requires the returned Lead identity and does not write member notes or metadata",async()=>{
+ process.env.ESTIMATE_CAPTURE_MODE="leads_api";await control("leads-available");
+ const request=emailLeadRequest();request.headers.set("x-forwarded-for","192.0.2.113");
+ const response=await leads(request);assert.equal(response.status,200);const data=await response.json();assert.equal(data.storage,"whop_leads");assert.equal(data.requestId,"lead_native01");assert.equal((await calls()).length,2);
+ await control("lead-invalid");const invalid=emailLeadRequest();invalid.headers.set("x-forwarded-for","192.0.2.113");assert.equal((await leads(invalid)).status,502);assert.equal((await calls()).length,2);
+});
+test("Leads API mode lists native Leads and invalid or production test modes fail before writes",async()=>{
+ const {adminList}=await import("../lib/admin-data");process.env.ESTIMATE_CAPTURE_MODE="leads_api";
+ const response=await adminList(new Request("http://localhost:3100/api/leads",{headers:{authorization:admin}}),"leads");assert.equal(response.status,200);const data=await response.json();assert.equal(data.captureMode,"leads_api");assert.equal(data.data[0].source,"Whop Lead · website estimate");assert.equal((await calls())[0].path,"/api/v1/leads");
+ await control("ok");process.env.ESTIMATE_CAPTURE_MODE="typo";assert.equal((await leads(emailLeadRequest())).status,503);assert.equal((await calls()).length,0);
+ const previous=process.env.ROOFING_WHOP_ENVIRONMENT;try {process.env.ESTIMATE_CAPTURE_MODE="leads_api";process.env.ROOFING_WHOP_ENVIRONMENT="production";assert.equal((await leads(emailLeadRequest())).status,503);assert.equal((await calls()).length,0);} finally {if(previous===undefined)delete process.env.ROOFING_WHOP_ENVIRONMENT;else process.env.ROOFING_WHOP_ENVIRONMENT=previous;}
 });

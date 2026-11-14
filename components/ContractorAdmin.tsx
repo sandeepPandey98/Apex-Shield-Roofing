@@ -24,6 +24,7 @@ export function ContractorAdmin({kind, embed: embedRoute = false}: {kind: Kind; 
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [environment, setEnvironment] = useState("");
+  const [captureMode,setCaptureMode] = useState("");
   const [next, setNext] = useState<string | null>(null);
   const [windowTo, setWindowTo] = useState<string | null>(null);
   const [updated, setUpdated] = useState("");
@@ -46,11 +47,11 @@ export function ContractorAdmin({kind, embed: embedRoute = false}: {kind: Kind; 
       if (generation.current !== current) return;
       setRows((old) => append ? [...old, ...data.data.filter((r: Row) => !old.some((x) => x.id === r.id))] : data.data);
       setNext(data.nextCursor); setWindowTo(data.to || null); setEnvironment(data.environment);
-      setLoaded(true); setUpdated(new Date().toLocaleTimeString());
+      setCaptureMode(data.captureMode || ""); setLoaded(true); setUpdated(new Date().toLocaleTimeString());
     } catch (e) {if (generation.current === current) setError(e instanceof Error ? e.message : "Could not load records.");}
     finally {if (generation.current === current) setBusy(false);}
   }
-  function reset() {generation.current++; setToken(""); setRows([]); setLoaded(false); setNext(null); setError(""); setBusy(false); setEnvironment(""); setUpdated("");}
+  function reset() {generation.current++; setToken(""); setRows([]); setLoaded(false); setNext(null); setError(""); setBusy(false); setEnvironment(""); setCaptureMode(""); setUpdated("");}
   useEffect(() => {
     if (session.authenticated) void load();
     return () => {generation.current++;};
@@ -73,7 +74,7 @@ export function ContractorAdmin({kind, embed: embedRoute = false}: {kind: Kind; 
     </nav></>}
     <section className="contractor-card">
       <div className="contractor-title"><div><p className="eyebrow">ACCOUNT RECORDS {environment && `· ${environment.toUpperCase()}`}</p><h1>{titles[kind]}</h1></div>{session.authenticated && <div className="contractor-actions"><button className="button primary" disabled={busy} onClick={() => void load()}><RefreshCw size={15} aria-hidden="true" className={busy ? "contractor-refreshing" : undefined} />{busy ? "Refreshing…" : "Refresh"}</button><button className="button secondary" onClick={() => void lock()}>Lock workspace</button></div>}</div>
-      <p>{kind === "tracking" ? activityView === "payments" ? "Actual payment records from the checkout account in the last 24 hours. Status comes from Whop; these are not pixel events. Sandbox transactions do not move real money." : activityView === "all" ? "All hosting-account events in the last 24 hours, including page views and dashboard visits. Use Website actions to find estimate and deposit activity." : "Your website’s estimate_requested, service_viewed and deposit_started events from the last 24 hours. Whop may take about a minute to report them; refresh after taking an action. Payments are listed separately because this demo uses sandbox checkout." : kind === "leads" ? "Latest website estimate per customer, saved in Whop Members. Full request history is preserved in each customer’s notes." : "Create a final balance invoice, then review the invoices returned by Whop for this business."}</p>
+      <p>{kind === "tracking" ? activityView === "payments" ? "Actual payment records from the checkout account in the last 24 hours. Status comes from Whop; these are not pixel events. Sandbox transactions do not move real money." : activityView === "all" ? "All hosting-account events in the last 24 hours, including page views and dashboard visits. Use Website actions to find estimate and deposit activity." : "Your website’s estimate_requested, service_viewed and deposit_started events from the last 24 hours. Whop may take about a minute to report them; refresh after taking an action. Payments are listed separately because this demo uses sandbox checkout." : kind === "leads" ? captureMode === "leads_api" ? "Native Whop Leads API test mode. This view shows Lead records; Members estimate capture is disabled." : "Latest website estimate per customer, saved in Whop Members. Full request history is preserved in each customer’s notes." : "Create a final balance invoice, then review the invoices returned by Whop for this business."}</p>
       {kind === "tracking" && session.authenticated && <label className="contractor-activity-filter">Show activity<select aria-label="Activity type" value={activityView} onChange={(e)=>setActivityView(e.target.value)}><option value="actions">Website actions</option><option value="payments">Payment records</option><option value="all">All hosting activity</option></select></label>}
       {session.checking ? <p role="status">Checking contractor session…</p> : session.authenticated ? <div className="contractor-session-status"><span>Signed in across all three contractor tabs.</span>{updated && <span className="contractor-refreshed">Last refreshed {updated}</span>}</div> : <form className="contractor-access" onSubmit={signIn}>
         <label>Contractor access token<input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" required minLength={24} /></label>

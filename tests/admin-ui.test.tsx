@@ -96,3 +96,8 @@ it("activity selector requests website actions or payment records with separate 
  expect(host.textContent).toContain("these are not pixel events");
  expect(host.textContent).toContain("No payment records returned");
 });
+it("native Lead mode identifies its source instead of claiming Members capture",async()=>{
+ authenticated=true;
+ fetchMock.mockImplementation(async(input:string)=>input==="/api/admin/session"?Response.json({authenticated:true}):Response.json({captureMode:"leads_api",data:[],nextCursor:null,environment:"sandbox"}));
+ await render("leads");expect(host.textContent).toContain("Native Whop Leads API test mode");expect(host.textContent).toContain("Members estimate capture is disabled");expect(host.textContent).not.toContain("saved in Whop Members");
+});

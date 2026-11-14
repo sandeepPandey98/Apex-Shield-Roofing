@@ -4,6 +4,7 @@ import { DEMO_MODE } from "@/config/site";
 import { leadSchema } from "@/lib/validation";
 import { ApiError, whopAccount, whopRequest } from "@/lib/whop";
 import { sendEstimateConfirmation } from "@/lib/estimate-email";
+import { estimateCaptureMode } from "@/lib/estimate-capture";
 import {
   checkOrigin,
   jsonError,
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
       });
     const key = `roofing-estimate-${createHash("sha256").update(requestKey(req) + JSON.stringify(input)).digest("hex").slice(0, 40)}`;
     const accountId = whopAccount();
+    const captureMode = estimateCaptureMode();
     // A company credential has no buyer identity. Resolve the email through
     // Whop's member API before creating the lead; metadata alone is insufficient.
     let stage = "resolve_customer";
@@ -47,6 +49,19 @@ export async function POST(req: Request) {
           "We could not verify your contact record. Please call us to request an estimate.",
           502,
         );
+      }
+      if (captureMode === "leads_api") {
+        stage="create_lead";
+        const nativeLead = await whopRequest<{id:string;created_at:string;user:{id:string}}>("/leads",{
+          account_id:accountId,user_id:member.user.id,
+          referrer:new URL(process.env.APP_URL || req.url).origin,
+          metadata:{roofing_source:"whop_roofing_website",roofing_full_name:input.fullName,roofing_email:input.email,roofing_phone:input.phone,roofing_address:input.address,roofing_zip:input.zipCode,roofing_service:input.serviceType,roofing_contact_consent:true,
+            ...Object.fromEntries([0,1,2,3].map((i)=>[`roofing_notes_${i+1}`,input.notes.slice(i*500,(i+1)*500)]))},
+        },`${key}-lead`);
+        if (!/^lead_[A-Za-z0-9]+$/.test(nativeLead.id) || nativeLead.user?.id!==member.user.id || !Number.isFinite(Date.parse(nativeLead.created_at)))
+          throw new ApiError("Whop did not confirm a native Lead for this request. No fallback estimate was saved.",502);
+        const emailStatus=await sendEstimateConfirmation(input,nativeLead.id);
+        return Response.json({success:true,demo:false,requestId:nativeLead.id,storage:"whop_leads",emailStatus});
       }
       // Whop retired POST /leads (HTTP 410). Keep each request in an
       // immutable member note; metadata indexes the latest request for our UI.
@@ -80,6 +95,8 @@ export async function POST(req: Request) {
       const emailStatus = await sendEstimateConfirmation(input,note.id);
       return Response.json({success: true, demo: false, requestId: note.id, storage: "whop_members", emailStatus});
     } catch (error) {
+      if (captureMode === "leads_api" && stage === "create_lead" && error instanceof ApiError && error.upstreamStatus === 410)
+        return Response.json({error:"Whop rejected native Lead creation (HTTP 410: endpoint retired). Leads API test mode did not save a Members estimate or send a confirmation email. Set ESTIMATE_CAPTURE_MODE=members to restore estimate capture.",code:"whop_leads_unavailable",captureMode:"leads_api"},{status:410,headers:{"Cache-Control":"no-store"}});
       if (
         error instanceof ApiError &&
         [401, 403].includes(error.upstreamStatus || 0)

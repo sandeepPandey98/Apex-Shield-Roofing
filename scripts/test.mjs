@@ -55,6 +55,7 @@ try {
         WHOP_API_KEY: "test-local-only",
         RESEND_API_KEY: "",
         ESTIMATE_EMAIL_FROM: "",
+        ESTIMATE_CAPTURE_MODE: "members",
         RESEND_TEST_BASE_URL: "http://127.0.0.1:4110/resend",
         NEXT_PUBLIC_WHOP_ACCOUNT_ID: "biz_demo",
         NEXT_PUBLIC_PLAN_INSPECTION: "plan_inspection",

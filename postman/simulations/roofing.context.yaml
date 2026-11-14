@@ -65,6 +65,13 @@ assumptions:
     verification: Route tests cover missing credentials, accepted payload, escaped HTML, rejected and unreadable responses, no-send on Whop failure, and key reuse. UI tests distinguish delivery acceptance from a saved estimate whose email failed. No actual delivery is claimed before credentials are configured.
     source: lib/estimate-email.ts; app/api/leads/route.ts; tests/routes.test.ts; tests/estimate-ui.test.tsx; https://resend.com/docs/api-reference/emails/send-email; https://resend.com/docs/dashboard/emails/idempotency-keys
     updated_at: "2026-11-14"
+  - id: native-leads-test-mode
+    status: supported
+    claim: Native Leads test mode never silently falls back to Members estimate capture after a provider rejection.
+    reason: The new real sandbox application request again returned HTTP 410. Local tests inspect the exact calls and confirm no notes/metadata capture or email follows that failure.
+    verification: Native success and invalid-identity branches are stand-in scenarios only; the actual provider remains retired. Mode switching restores Members capture without deleting data. Production test mode and invalid values fail before writes; native listing reads Lead records and labels its source.
+    source: app/api/leads/route.ts; lib/estimate-capture.ts; lib/admin-data.ts; tests/routes.test.ts; tests/admin-ui.test.tsx; docs/LEADS-MIGRATION.md
+    updated_at: "2026-11-14"
 fingerprints:
   - id: initial-verification
     date: "2026-11-13"
