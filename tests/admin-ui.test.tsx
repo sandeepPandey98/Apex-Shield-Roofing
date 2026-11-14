@@ -1,0 +1,55 @@
+import React, {act} from "react";
+import {createRoot, type Root} from "react-dom/client";
+import {afterEach, beforeEach, expect, it, vi} from "vitest";
+import {ContractorAdmin} from "../components/ContractorAdmin";
+let root: Root;
+let host: HTMLDivElement;
+let authenticated: boolean;
+const fetchMock=vi.fn();
+beforeEach(() => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+  authenticated=false;
+  host=document.createElement("div");document.body.append(host);root=createRoot(host);
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (input:string,options?: RequestInit) => {
+    if(input==="/api/admin/session") {
+      if(options?.method==="POST")authenticated=true;
+      if(options?.method==="DELETE")authenticated=false;
+      return Response.json({authenticated},{status:authenticated || options?.method==="DELETE"?200:401});
+    }
+    return Response.json({data:[],nextCursor:null,environment:"sandbox"});
+  });
+  vi.stubGlobal("fetch",fetchMock);
+});
+afterEach(async () => {await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();});
+async function render(kind:"tracking"|"leads"|"invoices") {await act(async()=>root.render(<ContractorAdmin key={kind} kind={kind}/>));}
+it("one sign-in survives navigation and unlocks the invoice form; lock signs out the other pages",async()=>{
+  await render("tracking");
+  expect(host.textContent).toContain("Unlock workspace");
+  const input=host.querySelector("input")!;
+  await act(async()=>{
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"test-admin-token-1234567890");
+    input.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  expect(host.textContent).toContain("Signed in across all three");
+  expect(host.querySelector('input[type="password"]')).toBeNull();
+  await render("leads");
+  expect(host.textContent).toContain("Signed in across all three");
+  await render("invoices");
+  expect(host.textContent).toContain("Create a final balance invoice");
+  expect(host.querySelector('input[type="password"]')).toBeNull();
+  expect(fetchMock.mock.calls.filter(([,options])=>options?.method==="POST")).toHaveLength(1);
+  const lock=Array.from(host.querySelectorAll("button")).find(b=>b.textContent==="Lock workspace")!;
+  await act(async()=>lock.click());
+  await render("tracking");
+  expect(host.textContent).toContain("Unlock workspace");
+  expect(host.textContent).not.toContain("Signed in across all three");
+});
+it("expired sessions clear the account data and return to the login form",async()=>{
+  authenticated=true;
+  fetchMock.mockImplementation(async(input:string)=>input==="/api/admin/session"?Response.json({authenticated:true}):Response.json({error:"Contractor authentication required."},{status:401}));
+  await render("leads");
+  expect(host.textContent).toContain("Your session has expired");
+  expect(host.textContent).toContain("Unlock workspace");
+});

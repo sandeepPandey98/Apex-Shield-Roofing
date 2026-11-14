@@ -1,0 +1,15 @@
+# Simulation scaffold. Add fault-injection scenarios under each mock, e.g.:
+#   scenarios:
+#     - overrides:
+#         conditions:
+#           latency: { delay_ms: 500 }
+# Then serve it with: postman simulation run <this file>
+
+simulation: roofing
+routing: path
+mocks:
+  - name: whop
+    routeKey: whop
+    origin:
+      - sandbox-api.whop.com
+    path: postman/mocks/whop

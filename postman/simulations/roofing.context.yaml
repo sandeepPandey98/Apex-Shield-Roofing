@@ -1,0 +1,58 @@
+purpose:
+  stands_in_for: Whop sandbox HTTP endpoints for leads, payments, receipt reads, and draft/send/issue invoices.
+  unblocks: Local verification of the actual route handlers without credentials or financial side effects.
+assumptions:
+  - id: current-request-shapes
+    status: supported
+    claim: The implemented request field names and invoice currency units match the saved 2026-11-12 Whop contract for the exercised operations.
+    reason: The provider OpenAPI was fetched directly and its relevant paths and references are saved in the repository.
+    verification: On 2026-11-13 npm test passed 15 checks. The real handlers made HTTP calls through the Postman simulation; assertions inspected service plan selection, metadata, dollar invoice amounts, separate idempotency keys, and send or issue ordering.
+    source: docs/whop-api-contract.json; tests/routes.test.ts; postman/mocks/whop/default.js
+    updated_at: "2026-11-13"
+  - id: provider-error-handling
+    status: supported
+    claim: In the exercised simulation scenarios, upstream HTML errors and rate limits become safe application errors, and a failed invoice draft prevents the send operation.
+    reason: Assertions check the route response and number of actual HTTP requests captured by the stand-in.
+    verification: npm test passed HTML, rate-limit, failed-draft, invalid-origin, invalid-body, and authorization cases on 2026-11-13. This establishes caller behavior against these stand-ins only.
+    source: tests/routes.test.ts; scripts/test.mjs
+    updated_at: "2026-11-13"
+  - id: actual-whop-account-behavior
+    status: unknown
+    claim: Sandbox credentials and plans enable anonymous lead creation, eligible payment saving, and invoice collection for this contractor account.
+    reason: Initial verification had no Whop credentials. Subsequently the sandbox plans and a paid inspection were read successfully; an authorized paid replacement deposit was not found. Setup completion, lead creation and invoice collection remain unverified in the real account. The owner mock search was skipped because Postman was signed out; direct official documentation supplied the contract.
+    verification: Not exercised against Whop. Check all account-specific behaviors using docs/SETUP.md before submission.
+    source: docs/SETUP.md; docs/SUBMISSION.md
+    updated_at: "2026-11-13"
+  - id: explicit-deposit-setup
+    status: supported
+    claim: In the exercised simulation, paid replacement deposits create and verify an existing-method setup intent; pending or mismatched setups cannot produce a saved-card confirmation, and setup retries create no new payment.
+    reason: Server routes validate signed proofs and read the receipt and setup through real HTTP calls to the local stand-in. Client orchestration has separate redirect and retry checks.
+    verification: The update passed 27 total checks with 115 simulation request entries including controls. Invalid proofs also returned 403 through the running Worker. No live replacement setup was created; sandbox read-only inspection found only a paid inspection, so actual bank/setup completion remains unverified.
+    source: lib/deposit-setup.ts; lib/deposit-client.ts; tests/routes.test.ts; tests/deposit-client.test.ts; docs/SETUP-INTENTS.md
+    updated_at: "2026-11-13"
+  - id: company-key-lead-requires-user
+    status: supported
+    claim: The sandbox company-key lead endpoint requires user_id; the lead route must resolve a real account member before creating a lead.
+    reason: A real sandbox metadata-only lead request returned HTTP 400 with user_id is required. The documented member-create endpoint resolves an email to a user; the key currently lacks its member:manage scope, confirmed by HTTP 403.
+    verification: The route and stand-in were corrected. 31 total checks passed with 138 HTTP simulation log entries including controls. No real diagnostic member or lead was created; live success remains pending the member:manage grant.
+    source: app/api/leads/route.ts; tests/routes.test.ts; docs/whop-api-contract.json; docs/SETUP.md
+    updated_at: "2026-11-13"
+  - id: failed-receipt-is-not-pending
+    status: supported
+    claim: A payment receipt may remain open while its collection substatus is failed; the application must distinguish a confirmed billing failure from a pending outcome.
+    reason: A real sandbox replacement receipt returned open/failed and a state/ZIP mismatch. The previous generic unsettled message obscured the correction required.
+    verification: The verification endpoint now returns a sanitized billing error and retry eligibility for that receipt. 37 checks passed, including preserving recovery for pending or paid outcomes and clearing it only for confirmed failure. No new payment was created during diagnosis.
+    source: lib/payment-state.ts; lib/deposit-client.ts; components/WhopPaymentForm.tsx; tests/payment-state.test.ts; tests/deposit-client.test.ts
+    updated_at: "2026-11-13"
+  - id: confirmed-checkout-recovery
+    status: supported
+    claim: The actual sandbox has a paid replacement deposit and linked succeeded setup, and the read-only confirmation endpoint validates both without creating another payment.
+    reason: The sandbox records were read with the configured credential and the combined verifier checked their ownership and linkage. The browser rendered confirmation after refresh and returned to a populated homepage.
+    verification: 39 server/client checks passed with 163 HTTP simulation entries including controls. Two React UI tests passed for stable exclusive SDK slots through success and containment of a widget render failure. No new payment was created during diagnosis or recovery.
+    source: app/api/verify/route.ts; app/checkout/complete/page.tsx; components/WhopPaymentForm.tsx; components/WhopCheckoutModal.tsx; tests/checkout-ui.test.tsx
+    updated_at: "2026-11-13"
+fingerprints:
+  - id: initial-verification
+    date: "2026-11-13"
+    commit: null
+    cli: Postman 1.80.0; Whop CLI 1.0.0; Elements 1.10.0

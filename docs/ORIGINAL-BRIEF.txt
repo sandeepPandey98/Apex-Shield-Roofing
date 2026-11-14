@@ -1,0 +1,456 @@
+US Roofing Website Template on Whop Websites
+Technical Implementation & Deployment Documentation
+
+Platform: Whop Websites (*.whop.app) | Stack: Next.js, TypeScript, Whop Payment Elements, Whop REST API
+
+1. Executive Overview & System Architecture
+This document provides a complete, step-by-step engineering specification for building, configuring, and deploying a reusable, white-label website template for US residential and commercial roofing contractors on Whop Websites.
+
+The template demonstrates Whop's end-to-end commerce and CRM capabilities for high-ticket home services through a four-stage lifecycle:
+
+Discovery & Pixel Analytics: Visitors explore roofing services (service_viewed), check local ZIP code eligibility, and initiate bookings (deposit_started) or quote inquiries (estimate_requested) tracked via window.whop.track.
+
+Lead Capture: Quote submissions from the "Request an Estimate" form route through a server-side endpoint to register prospects in the contractor's Whop CRM via the Whop Leads API.
+
+Checkout & Card-on-File Authorization: Customers purchase a $149 Inspection, $399 Flat-Rate Repair, or $500 Replacement Deposit using Whop Payment Elements (ExpressCheckoutElement, PaymentElement, and BrandingElement). The deposit plan uses an off_session setup intent to securely store the customer's payment method on file while automatically surfacing Buy Now, Pay Later (BNPL) providers (Klarna, Afterpay, Splitit).
+
+Final Balance Invoicing: Upon job completion, the contractor bills the remaining project balance through the Whop Invoices API, either auto-charging the stored card on file or sending an invoice link for manual payment.
+
+2. Prerequisites & Environment Configuration
+2.1 Project Scaffolding via Whop CLI
+Initialize the application using the official Whop CLI (whop.sh) so deployment maps directly to a live *.whop.app subdomain:
+
+Bash
+npx @whop/cli@latest init roofing-website-template
+cd roofing-website-template
+npm install
+2.2 Whop Dashboard Plan Setup (Sandbox / Test Mode)
+Log in to your Whop Business Dashboard, enable Sandbox / Test Mode, and create three distinct one-time pricing plans:
+
+Plan Name	Price	Billing Model	Card-on-File Setup Intent	Environment Variable
+21-Point Drone & Attic Inspection	$149.00	One-time	Not required	NEXT_PUBLIC_PLAN_INSPECTION
+Emergency Leak & Flashing Tune-Up	$399.00	One-time	Not required	NEXT_PUBLIC_PLAN_FLAT_RATE
+Full Roof Replacement Deposit	$500.00	One-time	Required (off_session)	NEXT_PUBLIC_PLAN_DEPOSIT
+2.3 Environment Variables
+Create a .env.local file in the project root and mirror these values inside your Whop deployment environment settings:
+
+Code snippet
+WHOP_API_KEY=whop_sk_test_xxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_WHOP_APP_ID=app_xxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_PLAN_INSPECTION=plan_xxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_PLAN_FLAT_RATE=plan_xxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_PLAN_DEPOSIT=plan_xxxxxxxxxxxxxxxxx
+3. Directory Structure & White-Label Architecture
+All contractor branding, service offerings, pricing tiers, service areas, and customer testimonials are decoupled from UI components and stored inside config/site.ts. Onboarding a new roofing business requires editing a single configuration object with zero structural code changes.
+
+Plaintext
+roofing-website-template/
+├── config/
+│   └── site.ts                  # Centralized white-label configuration
+├── lib/
+│   └── tracking.ts              # Typed wrapper for window.whop.track
+├── components/
+│   ├── Navbar.tsx               # Responsive header with click-to-call CTA
+│   ├── ServicesSection.tsx      # Inspection, Repair, and Replacement cards
+│   ├── ServiceAreaSection.tsx   # Covered cities & interactive ZIP code validator
+│   ├── FinancingBanner.tsx      # BNPL callout (Klarna, Afterpay, Splitit)
+│   ├── ReviewsSection.tsx       # Homeowner reviews & manufacturer certifications
+│   ├── EstimateForm.tsx         # Quote request form wired to /api/leads
+│   ├── WhopCheckoutModal.tsx    # PaymentElement + ExpressCheckoutElement + BrandingElement
+│   └── ContractorDemoPanel.tsx  # Admin drawer to trigger Final Balance Invoices
+└── app/
+    ├── page.tsx                 # Main landing page assembling all sections
+    └── api/
+        ├── leads/route.ts       # Whop Leads API server handler
+        └── invoices/route.ts    # Whop Invoices API server handler
+3.1 Centralized Configuration (config/site.ts)
+TypeScript
+export interface ServiceItem {
+  id: string;
+  category: "Inspection" | "Repair" | "Replacement";
+  title: string;
+  price: number;
+  priceLabel: string;
+  planId: string;
+  description: string;
+  features: string[];
+  isDeposit: boolean;
+}
+
+export const SITE_CONFIG = {
+  companyName: "Apex Shield Roofing & Exteriors",
+  tagline: "Licensed, Bonded & Insured Residential Roofing",
+  licenseNumber: "TX-ROOF-884920",
+  phone: "(512) 555-0194",
+  email: "estimates@apexshieldroofing.example",
+  serviceArea: {
+    state: "Texas",
+    cities: ["Austin", "Round Rock", "Cedar Park", "Georgetown", "Lakeway", "Pflugerville"],
+    zipCodes: ["78701", "78704", "78745", "78664", "78613", "78626", "78734"],
+  },
+  financing: {
+    headline: "Flexible Roof Financing Available at Checkout",
+    subheadline:
+      "Split your inspection, repair, or deposit into predictable payments via Klarna, Afterpay, or Splitit—surfaced automatically through Whop Checkout.",
+  },
+  services: [
+    {
+      id: "roof-inspection",
+      category: "Inspection",
+      title: "21-Point Drone & Attic Inspection",
+      price: 149,
+      priceLabel: "$149 Flat Fee",
+      planId: process.env.NEXT_PUBLIC_PLAN_INSPECTION!,
+      description:
+        "Comprehensive thermal moisture scan, shingle granule check, and insurance-ready photo report.",
+      features: ["4K Drone Roof Scan", "Attic Ventilation & Decking Check", "Same-Day PDF Report"],
+      isDeposit: false,
+    },
+    {
+      id: "flat-rate-repair",
+      category: "Repair",
+      title: "Emergency Leak & Flashing Tune-Up",
+      price: 399,
+      priceLabel: "$399 Flat Rate",
+      planId: process.env.NEXT_PUBLIC_PLAN_FLAT_RATE!,
+      description:
+        "Transparent flat-rate repair for active leaks, cracked pipe boots, and lifted ridge caps.",
+      features: ["Up to 2 Pipe Boot Replacements", "Chimney & Valley Sealing", "2-Year Workmanship Warranty"],
+      isDeposit: false,
+    },
+    {
+      id: "replacement-deposit",
+      category: "Replacement",
+      title: "Full Roof Replacement Deposit",
+      price: 500,
+      priceLabel: "$500 Project Deposit",
+      planId: process.env.NEXT_PUBLIC_PLAN_DEPOSIT!,
+      description:
+        "Locks in material pricing and crew scheduling. Card is securely saved on file for final balance billing upon completion.",
+      features: ["Dedicated Project Manager", "100% Applied Toward Final Invoice", "Card-on-File Final Billing"],
+      isDeposit: true,
+    },
+  ] satisfies ServiceItem[],
+  reviews: [
+    {
+      id: "rev-1",
+      author: "Marcus T.",
+      city: "Round Rock, TX",
+      rating: 5,
+      project: "Full Architectural Shingle Replacement",
+      quote:
+        "Booked the $149 drone inspection online, got the photo report that afternoon, and locked our replacement crew with a $500 deposit.",
+    },
+    {
+      id: "rev-2",
+      author: "Elena R.",
+      city: "Austin, TX",
+      rating: 5,
+      project: "Flat-Rate Flashing & Leak Repair",
+      quote:
+        "No pushy sales pitch. Paid the $399 flat-rate repair online with Apple Pay and they fixed our chimney flashing the next morning.",
+    },
+    {
+      id: "rev-3",
+      author: "David & Sarah K.",
+      city: "Cedar Park, TX",
+      rating: 5,
+      project: "Hail Damage Insurance Replacement",
+      quote:
+        "Transparent from estimate to final invoice. Having our card on file made closing out the final balance effortless once we signed off.",
+    },
+  ],
+};
+4. Custom Pixel Analytics (lib/tracking.ts)
+While page views and standard checkout conversions are recorded automatically on *.whop.app domains, three custom funnel events are instrumented via window.whop.track:
+
+Custom Event	Trigger Condition	Payload Properties
+service_viewed	User selects a service card to inspect details or initiate booking	{ service_id, category, price }
+deposit_started	Checkout modal opens for the $500 Full Roof Replacement Deposit	{ service_id, plan_id, amount }
+estimate_requested	/api/leads returns HTTP 200 after submitting the quote form	{ service_type, zip_code }
+4.1 Tracking Helper Implementation
+TypeScript
+export type CustomWhopEvent =
+  | "service_viewed"
+  | "deposit_started"
+  | "estimate_requested";
+
+declare global {
+  interface Window {
+    whop?: {
+      track: (eventName: string, properties?: Record<string, unknown>) => void;
+    };
+  }
+}
+
+export function trackCustomEvent(
+  eventName: CustomWhopEvent,
+  properties: Record<string, unknown> = {}
+) {
+  if (typeof window === "undefined") return;
+
+  if (typeof window.whop?.track === "function") {
+    window.whop.track(eventName, {
+      ...properties,
+      timestamp: new Date().toISOString(),
+    });
+  } else {
+    console.debug(`[whop.track fallback] ${eventName}`, properties);
+  }
+}
+5. Whop Payment Elements Checkout (components/WhopCheckoutModal.tsx)
+All transactions execute exclusively through Whop Payment Elements without third-party processors or custom credit card inputs. When service.isDeposit is true, setupFutureUsage="off_session" authorizes saving the customer's payment method for final balance billing.
+
+TypeScript
+"use client";
+
+import { useEffect } from "react";
+import {
+  WhopCheckoutProvider,
+  PaymentElement,
+  ExpressCheckoutElement,
+  BrandingElement,
+} from "@whop/react/elements";
+import { ServiceItem } from "@/config/site";
+import { trackCustomEvent } from "@/lib/tracking";
+
+interface WhopCheckoutModalProps {
+  service: ServiceItem | null;
+  onClose: () => void;
+  onPaymentSuccess: (details: {
+    service: ServiceItem;
+    userId?: string;
+    email?: string;
+  }) => void;
+}
+
+export function WhopCheckoutModal({
+  service,
+  onClose,
+  onPaymentSuccess,
+}: WhopCheckoutModalProps) {
+  useEffect(() => {
+    if (service?.isDeposit) {
+      trackCustomEvent("deposit_started", {
+        service_id: service.id,
+        plan_id: service.planId,
+        amount: service.price,
+      });
+    }
+  }, [service]);
+
+  if (!service) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between border-b pb-4">
+          <div>
+            <span className="inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+              {service.category}
+            </span>
+            <h3 className="mt-1 text-xl font-bold text-slate-900">{service.title}</h3>
+            <p className="text-sm font-medium text-slate-600">{service.priceLabel}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close checkout"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        {service.isDeposit && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+            <strong>Card-on-File Authorization:</strong> Your payment method will be saved
+            securely via Whop so your remaining project balance can be billed upon final walkthrough.
+          </div>
+        )}
+
+        <WhopCheckoutProvider
+          planId={service.planId}
+          setupFutureUsage={service.isDeposit ? "off_session" : undefined}
+        >
+          <div className="space-y-4">
+            {/* Express Wallets: Apple Pay & Google Pay */}
+            <ExpressCheckoutElement
+              onComplete={(result) =>
+                onPaymentSuccess({
+                  service,
+                  userId: result?.userId,
+                  email: result?.email,
+                })
+              }
+            />
+
+            <div className="relative flex items-center py-1">
+              <div className="flex-grow border-t border-slate-200" />
+              <span className="mx-3 flex-shrink text-xs uppercase tracking-wider text-slate-400">
+                Or pay with Card / Klarna / Afterpay
+              </span>
+              <div className="flex-grow border-t border-slate-200" />
+            </div>
+
+            {/* Card & Automatic BNPL Options */}
+            <PaymentElement
+              onComplete={(result) =>
+                onPaymentSuccess({
+                  service,
+                  userId: result?.userId,
+                  email: result?.email,
+                })
+              }
+            />
+
+            {/* Required Whop Branding Element */}
+            <div className="pt-2">
+              <BrandingElement />
+            </div>
+          </div>
+        </WhopCheckoutProvider>
+      </div>
+    </div>
+  );
+}
+6. Server-Side Whop API Integrations
+6.1 Leads API Endpoint (app/api/leads/route.ts)
+Captures quote requests from the "Request an Estimate" form and creates structured Lead records inside the Whop Business Dashboard.
+
+TypeScript
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { fullName, email, phone, address, zipCode, serviceType, notes } = body;
+
+    if (!fullName || !email || !phone) {
+      return NextResponse.json(
+        { error: "Name, email, and phone number are required." },
+        { status: 400 }
+      );
+    }
+
+    const whopRes = await fetch("https://api.whop.com/api/v5/company/leads", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHOP_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: fullName,
+        email,
+        phone,
+        metadata: {
+          property_address: address || "Not provided",
+          zip_code: zipCode || "Not provided",
+          service_requested: serviceType || "Roof Replacement",
+          project_notes: notes || "",
+          lead_source: "whop_roofing_website",
+        },
+      }),
+    });
+
+    const data = await whopRes.json();
+
+    if (!whopRes.ok) {
+      return NextResponse.json(
+        { error: data?.message || "Failed to create lead in Whop." },
+        { status: whopRes.status }
+      );
+    }
+
+    return NextResponse.json({ success: true, lead: data });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error creating lead." },
+      { status: 500 }
+    );
+  }
+}
+6.2 Invoices API Endpoint (app/api/invoices/route.ts)
+Generates and collects the final balance invoice after project completion using either automatic charging against the stored card (charge_automatically) or hosted invoice delivery (send_invoice).
+
+TypeScript
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const {
+      customerEmail,
+      userId,
+      totalJobAmount,
+      depositPaid = 500,
+      description,
+      chargeStoredCard = true,
+    } = body;
+
+    const balanceDue = Math.max(0, Number(totalJobAmount) - Number(depositPaid));
+    const amountInCents = Math.round(balanceDue * 100);
+
+    if (!customerEmail || amountInCents <= 0) {
+      return NextResponse.json(
+        { error: "Valid customer email and positive balance due are required." },
+        { status: 400 }
+      );
+    }
+
+    const whopRes = await fetch("https://api.whop.com/api/v5/company/invoices", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.WHOP_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        customer_email: customerEmail,
+        ...(userId ? { user_id: userId } : {}),
+        line_items: [
+          {
+            description:
+              description ||
+              `Final Balance — Roof Replacement ($${totalJobAmount} total less $${depositPaid} deposit)`,
+            amount: amountInCents,
+            quantity: 1,
+          },
+        ],
+        collection_method: chargeStoredCard ? "charge_automatically" : "send_invoice",
+        ...(chargeStoredCard ? {} : { days_until_due: 7 }),
+      }),
+    });
+
+    const data = await whopRes.json();
+
+    if (!whopRes.ok) {
+      return NextResponse.json(
+        { error: data?.message || "Failed to create invoice in Whop." },
+        { status: whopRes.status }
+      );
+    }
+
+    return NextResponse.json({ success: true, invoice: data, balanceDue });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error creating invoice." },
+      { status: 500 }
+    );
+  }
+}
+7. Deployment & Verification Procedure
+7.1 Live Deployment via Whop CLI
+Deploy the application directly to a live *.whop.app address:
+
+Bash
+npx @whop/cli@latest deploy
+Verify that the CLI outputs a live https://<project-name>.whop.app URL.
+
+7.2 Quality Assurance & Verification Matrix
+Verification Area	Test Procedure	Expected Result
+Live Hosting	Open https://<project-name>.whop.app in incognito browser	Page loads cleanly with SSL and zero console errors
+Responsive UI	Test at 375px (mobile) and 1440px (desktop) viewports	All sections, grids, and checkout modals adapt without overflow
+Payment Elements	Open checkout for $149, $399, and $500 deposit plans	ExpressCheckoutElement, PaymentElement, and BrandingElement render
+Sandbox Checkout	Complete $500 deposit with Whop test card (4242 4242 4242 4242)	Payment succeeds; customer payment method is stored on file
+Leads API	Submit "Request an Estimate" form with sample homeowner data	New lead appears in Whop Dashboard with property metadata
+Invoices API	Trigger final balance invoice via Contractor Demo Panel	Invoice is created/charged and visible in Whop Dashboard
+Pixel Tracking	Monitor Chrome DevTools Network tab during user actions	service_viewed, deposit_started, and estimate_requested fire

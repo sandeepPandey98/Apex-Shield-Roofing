@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.env*
+!.env.example
+playwright-report/
+test-results/
+*.tsbuildinfo
+.DS_Store
+.whop/
+*.ndjson
+dist/
+.wrangler/
+.dev.vars
+.output/
+
+# Local verification captures can contain customer information.
+output/

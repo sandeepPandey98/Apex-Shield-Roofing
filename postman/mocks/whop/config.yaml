@@ -1,0 +1,17 @@
+version: 1
+id: 7e34d51c-5948-457b-bbf6-e12984fdb14b
+name: whop
+slug: whop
+protocol: http
+port: 4500
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
+generatedFrom:
+  type: spec
+  mode: static
+  path: ../../../docs/whop-api-contract.json
+
+interceptRequests: true
+origin: https://sandbox-api.whop.com
