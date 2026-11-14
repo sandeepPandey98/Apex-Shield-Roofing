@@ -72,6 +72,13 @@ assumptions:
     verification: Native success and invalid-identity branches are stand-in scenarios only; the actual provider remains retired. Mode switching restores Members capture without deleting data. Production test mode and invalid values fail before writes; native listing reads Lead records and labels its source.
     source: app/api/leads/route.ts; lib/estimate-capture.ts; lib/admin-data.ts; tests/routes.test.ts; tests/admin-ui.test.tsx; docs/LEADS-MIGRATION.md
     updated_at: "2026-11-14"
+  - id: event-price-semantics
+    status: supported
+    claim: New service and deposit-start actions send Whop's value/currency fields while the dashboard treats those prices separately from payment revenue.
+    reason: The official pixel reference specifies value and currency; the previous price/amount fields did not populate native monetary fields. Historical nulls are preserved rather than fabricated.
+    verification: UI action tests assert USD major-unit prices for inspection, repair and deposit and no purchase event. Dashboard tests verify loaded-row counts and missing-value labels. Live browser verified counts and navigation; the automated click's monetary value was not yet observed in the provider feed.
+    source: components/RoofingSite.tsx; components/ContractorAdmin.tsx; tests/pricing-ui.test.tsx; tests/admin-ui.test.tsx; https://docs.whop.com/developer/websites/tracking.md
+    updated_at: "2026-11-14"
 fingerprints:
   - id: initial-verification
     date: "2026-11-13"

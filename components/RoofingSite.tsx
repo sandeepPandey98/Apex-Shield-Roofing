@@ -52,13 +52,17 @@ export function RoofingSite() {
     trackCustomEvent("service_viewed", {
       service_id: item.id,
       category: item.category,
-      price: item.price,
+      value: item.price,
+      currency: "USD",
+      ...(item.planId ? {variant_id:item.planId} : {}),
     });
     if (item.isDeposit)
       trackCustomEvent("deposit_started", {
         service_id: item.id,
         plan_id: item.planId || "demo",
-        amount: item.price,
+        value: item.price,
+        currency: "USD",
+        ...(item.planId ? {variant_id:item.planId} : {}),
       });
     setService(item);
   }

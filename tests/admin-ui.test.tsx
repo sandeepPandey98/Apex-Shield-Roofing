@@ -101,3 +101,24 @@ it("native Lead mode identifies its source instead of claiming Members capture",
  fetchMock.mockImplementation(async(input:string)=>input==="/api/admin/session"?Response.json({authenticated:true}):Response.json({captureMode:"leads_api",data:[],nextCursor:null,environment:"sandbox"}));
  await render("leads");expect(host.textContent).toContain("Native Whop Leads API test mode");expect(host.textContent).toContain("Members estimate capture is disabled");expect(host.textContent).not.toContain("saved in Whop Members");
 });
+it("all three embed routes have a top-right website link that opens outside the iframe",async()=>{
+ for(const kind of ["tracking","leads","invoices"] as const){
+  await act(async()=>root.render(<ContractorAdmin key={kind} kind={kind} embed/>));
+  const link=host.querySelector('.contractor-title .contractor-actions a[aria-label="Open roofing website in a new tab"]')!;
+  expect(link.getAttribute('href')).toBe('/');expect(link.getAttribute('target')).toBe('_blank');expect(link.getAttribute('rel')).toContain('noopener');
+ }
+});
+it("website activity counts real loaded rows and distinguishes prices from revenue or missing values",async()=>{
+ authenticated=true;
+ fetchMock.mockImplementation(async(input:string)=>input==="/api/admin/session"?Response.json({authenticated:true}):Response.json({data:[
+  {id:'a',event:'estimate_requested',time:'2026-11-14T12:00:00Z',page:'/',value:null},
+  {id:'b',event:'service_viewed',time:'2026-11-14T12:00:00Z',page:'/',value:null},
+  {id:'c',event:'deposit_started',time:'2026-11-14T12:00:00Z',page:'/',value:500,currency:'usd'},
+ ],nextCursor:'next_page',environment:'production'}));
+ await render('tracking');
+ expect([...host.querySelectorAll('.contractor-metrics strong')].map(x=>x.textContent)).toEqual(['1','1','1']);
+ expect(host.textContent).toContain('Related price');expect(host.textContent).toContain('Not priced');expect(host.textContent).toContain('Not recorded');expect(host.textContent).toContain('$500.00');expect(host.textContent).toContain('not payments collected');
+ const select=host.querySelector('select[aria-label="Activity type"]')!;
+ await act(async()=>{(select as HTMLSelectElement).value='payments';select.dispatchEvent(new Event('change',{bubbles:true}));});
+ expect(host.querySelector('.contractor-metrics')).toBeNull();
+});
