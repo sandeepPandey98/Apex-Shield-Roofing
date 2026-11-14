@@ -34,3 +34,16 @@ These routes are ready to use as destinations. No Whop app experiences or sideba
 Invoice send/issue may require business verification even in sandbox. The Home page has a Verify now banner, and the billing form links directly to the Whop verification screen when that specific error occurs. The draft remains in Whop. Keep the form open and retry the saved draft after completing verification; navigating away discards only the form's draft reference, not the provider record. Existing drafts remain visible in Whop. Matching retries never create another draft, and already-issued invoices are not resent or charged again by the resume flow.
 
 Invoice issuing also requires the customer billing address for tax. Enter street, city, state and ZIP (US). Sandbox prefills are illustrative and editable; production starts blank. An address correction updates a saved draft instead of creating another invoice. The balance shown in the calculator is before any tax Whop resolves at issue time.
+
+## Separate Website Embed destinations
+
+Create one Website Embed instance per route:
+- Event Activity: `https://apex-shield-roofing-demo.whop.site/embed/tracking`
+- Estimate Requests: `https://apex-shield-roofing-demo.whop.site/embed/leads`
+- Project Billing: `https://apex-shield-roofing-demo.whop.site/embed/invoices`
+
+These routes omit the website link and contractor navigation; Whop supplies the surrounding sidebar. Existing /admin routes retain full navigation. Keep the apps unassigned to customer products.
+
+The contractor token remains server-only. One explicit unlock sets a four-hour HttpOnly, Secure, SameSite=None, Partitioned cookie for HTTPS embeds, shared by the three routes under the same top-level Whop site. Normal website sessions continue using SameSite=Strict. The login verifies that the browser actually retained the cookie before showing account data; blocked-cookie errors do not falsely report success. Browser support/settings can still prevent embedded sessions. Direct and embedded sessions can occupy different cookie partitions. Lock the workspace in the context where you signed in.
+
+An env secret cannot establish a visitor's identity by itself. Generic Website Embed is not treated as verified Whop admin authentication. Automatic sign-in would require a custom Whop app identity integration with signature/audience validation plus an account-level admin authorization check; neither referrer nor iframe visibility grants access. No secret is passed in embed URLs or bundled client code.

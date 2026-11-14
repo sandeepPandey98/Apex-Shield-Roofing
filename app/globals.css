@@ -2305,6 +2305,11 @@ textarea {
 [hidden] { display: none !important; }
 
 .contractor-page {max-width:1200px;margin:auto;padding:30px 24px 80px;color:#153f35;min-height:100vh;background:#f8f9f4}
+.contractor-embed {max-width:none;padding:24px 32px 48px;background:#f8f9f4}
+.contractor-embed>.contractor-card {max-width:1320px;margin:0 auto 24px}
+.contractor-embed>.contractor-invoice {max-width:1320px}
+.contractor-embed .admin-form {max-width:760px}
+@media(max-width:650px) {.contractor-page.contractor-embed {padding:14px}}
 .contractor-header,.contractor-title {display:flex;align-items:center;justify-content:space-between;gap:20px}
 .contractor-header {font-size:12px;margin-bottom:32px}.contractor-header span {letter-spacing:.15em}
 .contractor-nav {display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.contractor-nav a {padding:12px 18px;border:1px solid #d7dfd4;border-radius:6px;font-size:14px}.contractor-nav a[aria-current] {background:#153f35;color:white}

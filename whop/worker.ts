@@ -40,7 +40,7 @@ export default {
     }
     if (url.pathname.startsWith("/api/"))
       return Response.json({ error: "Not found" }, { status: 404 });
-    if (url.pathname === "/checkout/complete" || /^\/admin\/(tracking|leads|invoices)\/?$/.test(url.pathname))
+    if (url.pathname === "/checkout/complete" || /^\/(admin|embed)\/(tracking|leads|invoices)\/?$/.test(url.pathname))
       return env.ASSETS.fetch(new Request(new URL("/", url), request));
     return env.ASSETS.fetch(request);
   },

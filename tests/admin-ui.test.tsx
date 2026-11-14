@@ -53,3 +53,36 @@ it("expired sessions clear the account data and return to the login form",async(
   expect(host.textContent).toContain("Your session has expired");
   expect(host.textContent).toContain("Unlock workspace");
 });
+it("embed pages show only their selected view and use shared embedded sign-in",async()=>{
+ await act(async()=>root.render(<ContractorAdmin kind="tracking" embed/>));
+ expect(host.querySelector('nav[aria-label="Contractor pages"]')).toBeNull();
+ expect(host.textContent).not.toContain("Back to website");
+ expect(host.querySelector("h1")?.textContent).toBe("Event activity");
+ const input=host.querySelector("input")!;
+ await act(async()=>{
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"test-admin-token-1234567890");
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+ });
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(fetchMock.mock.calls.find(([,options])=>options?.method==="POST")?.[1]?.headers).toMatchObject({"X-Contractor-Embed":"1"});
+ await act(async()=>root.render(<ContractorAdmin key="leads-embed" kind="leads" embed/>));
+ expect(host.querySelector('input[type="password"]')).toBeNull();
+ expect(host.querySelector("h1")?.textContent).toBe("Estimate requests");
+ await act(async()=>root.render(<ContractorAdmin key="invoices-embed" kind="invoices" embed/>));
+ expect(host.querySelector('input[type="password"]')).toBeNull();
+ expect(host.querySelector("h1")?.textContent).toBe("Project billing");
+ expect(fetchMock.mock.calls.filter(([,options])=>options?.method==="POST")).toHaveLength(1);
+});
+it("blocked cookies keep the login form visible instead of falsely unlocking",async()=>{
+ fetchMock.mockImplementation(async()=>Response.json({authenticated:false},{status:401}));
+ await act(async()=>root.render(<ContractorAdmin kind="tracking" embed/>));
+ const input=host.querySelector("input")!;
+ await act(async()=>{
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"test-admin-token-1234567890");
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+ });
+ fetchMock.mockImplementation(async(_input:string,options?:RequestInit)=>Response.json({authenticated:options?.method==="POST"},{status:options?.method==="POST"?200:401}));
+ await act(async()=>host.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+ expect(host.textContent).toContain("browser blocked the sign-in cookie");
+ expect(host.textContent).toContain("Unlock workspace");
+});

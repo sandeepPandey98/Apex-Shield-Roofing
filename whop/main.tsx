@@ -6,6 +6,6 @@ import { CheckoutErrorBoundary } from "../components/CheckoutErrorBoundary";
 import "../app/globals.css";
 createRoot(document.getElementById("root")!).render(
   <CheckoutErrorBoundary>
-    {location.pathname === "/checkout/complete" ? <Receipt /> : /^\/admin\/(tracking|leads|invoices)\/?$/.test(location.pathname) ? <ContractorAdmin kind={location.pathname.split("/")[2] as "tracking" | "leads" | "invoices"} /> : <RoofingSite />}
+    {location.pathname === "/checkout/complete" ? <Receipt /> : /^\/(admin|embed)\/(tracking|leads|invoices)\/?$/.test(location.pathname) ? <ContractorAdmin embed={location.pathname.startsWith("/embed/")} kind={location.pathname.split("/")[2] as "tracking" | "leads" | "invoices"} /> : <RoofingSite />}
   </CheckoutErrorBoundary>,
 );

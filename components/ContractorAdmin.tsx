@@ -12,8 +12,11 @@ function money(value: number | string | null | undefined, currency = "usd") {
   try { return new Intl.NumberFormat("en-US", {style: "currency", currency}).format(Number(value)); } catch { return String(value); }
 }
 function time(value: string) { const d = new Date(value); return Number.isFinite(d.getTime()) ? d.toLocaleString() : "—"; }
-export function ContractorAdmin({kind}: {kind: Kind}) {
-  const session = useContractorSession();
+export function ContractorAdmin({kind, embed: embedRoute = false}: {kind: Kind; embed?: boolean}) {
+  const [framed, setFramed] = useState(false);
+  useEffect(() => {setFramed(window.self !== window.top);}, []);
+  const embed = embedRoute || framed;
+  const session = useContractorSession(true, embed);
   const [signingIn, setSigningIn] = useState(false);
   const [token, setToken] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
@@ -61,11 +64,11 @@ export function ContractorAdmin({kind}: {kind: Kind}) {
     try {await session.logout(); reset();}
     catch (e) {setError(e instanceof Error ? e.message : "Could not lock workspace.");}
   }
-  return <main className="contractor-page">
-    <header className="contractor-header"><a href="/">← Back to website</a><span>CONTRACTOR WORKSPACE</span></header>
+  return <main className={`contractor-page${embed ? " contractor-embed" : ""}`}>
+    {!embed && <><header className="contractor-header"><a href="/">← Back to website</a><span>CONTRACTOR WORKSPACE</span></header>
     <nav className="contractor-nav" aria-label="Contractor pages">
       {(Object.keys(titles) as Kind[]).map((k) => <a key={k} href={`/admin/${k}`} aria-current={k === kind ? "page" : undefined}>{titles[k]}</a>)}
-    </nav>
+    </nav></>}
     <section className="contractor-card">
       <div className="contractor-title"><div><p className="eyebrow">ACCOUNT RECORDS {environment && `· ${environment.toUpperCase()}`}</p><h1>{titles[kind]}</h1></div>{session.authenticated && <div className="contractor-actions"><button className="button primary" disabled={busy} onClick={() => void load()}><RefreshCw size={15} aria-hidden="true" className={busy ? "contractor-refreshing" : undefined} />{busy ? "Refreshing…" : "Refresh"}</button><button className="button secondary" onClick={() => void lock()}>Lock workspace</button></div>}</div>
       <p>{kind === "tracking" ? "Events returned by Whop for this business in the last 24 hours. Events may take about a minute to appear. This view includes account-wide activity, not just this website." : kind === "leads" ? "Latest website estimate per customer, saved in Whop Members. Full request history is preserved in each customer’s notes." : "Create a final balance invoice, then review the invoices returned by Whop for this business."}</p>
@@ -73,7 +76,7 @@ export function ContractorAdmin({kind}: {kind: Kind}) {
         <label>Contractor access token<input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" required minLength={24} /></label>
         <button className="button primary" disabled={signingIn || token.length < 24}>{signingIn ? "Signing in…" : "Unlock workspace"}</button>
       </form>}
-      <p className="contractor-meta">One sign-in works across all contractor tabs for up to 4 hours. Lock workspace to sign out.</p>
+      <p className="contractor-meta">{embed ? "Unlock once for all three apps in this Whop community for up to 4 hours. Your browser must allow partitioned cookies. Open the page directly if embedded sign-in is blocked." : "One sign-in works across all contractor tabs for up to 4 hours. Lock workspace to sign out."}</p>
       {error && <p role="alert" className="form-error">{error}</p>}
       {loaded && <>
         {rows.length === 0 ? <div className="contractor-empty">{kind === "tracking" ? "No events returned for this window. Visit the deployed Whop website, perform the tracked actions, then refresh. Localhost clicks alone do not prove pixel delivery." : kind === "leads" ? "No website estimates on this page of customers. Use Load more if available." : `No ${kind} returned by Whop.`}</div> :

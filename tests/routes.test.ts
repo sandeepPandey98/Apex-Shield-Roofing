@@ -635,3 +635,20 @@ test("tax-address failures retain the draft and address corrections patch the sa
  assert.equal((await invoices(req("invoices",{...invoice,invoiceId:data.invoiceId,billingAddress:address},admin))).status,200);
  const log=await calls();assert.equal(log.length,3);assert.equal((log[1] as any).method,"PATCH");assert.deepEqual(log[1].body,{billing_address:address});assert.equal(log.some(x=>x.path==="/api/v1/invoices"),false);
 });
+
+test("embedded sign-in uses a secure partitioned cookie shared by all three account routes",async()=>{
+ const session=await import("../app/api/admin/session/route");
+ const {adminList}=await import("../lib/admin-data");
+ const request=new Request("https://roofing.example/api/admin/session",{method:"POST",headers:{authorization:admin,origin:"https://roofing.example","x-contractor-embed":"1"}});
+ const response=await session.POST(request);assert.equal(response.status,200);
+ const cookie=response.headers.get("set-cookie")!;
+ assert.match(cookie,/^__Host-roofing_contractor_embed=/);assert.match(cookie,/HttpOnly/);assert.match(cookie,/Secure/);assert.match(cookie,/SameSite=None/);assert.match(cookie,/Partitioned/);
+ assert.equal(cookie.includes(admin.replace("Bearer ","")),false);
+ const headers={cookie:cookie.split(";")[0]};
+ for(const kind of ["tracking","leads","invoices"] as const)assert.equal((await adminList(new Request(`https://roofing.example/api/${kind}`,{headers}),kind)).status,200);
+ const forged=headers.cookie.slice(0,-1)+(headers.cookie.endsWith("a")?"b":"a");
+ assert.equal((await session.GET(new Request("https://roofing.example/api/admin/session",{headers:{cookie:forged}}))).status,401);
+ const locked=await session.DELETE(new Request("https://roofing.example/api/admin/session",{method:"DELETE",headers:{origin:"https://roofing.example","x-contractor-embed":"1"}}));
+ assert.match(locked.headers.get("set-cookie")!,/^__Host-roofing_contractor_embed=;/);assert.match(locked.headers.get("set-cookie")!,/Max-Age=0/);
+ const publicRequest=await session.POST(new Request("https://roofing.example/api/admin/session",{method:"POST",headers:{origin:"https://roofing.example","x-contractor-embed":"1"}}));assert.equal(publicRequest.status,401);
+});
