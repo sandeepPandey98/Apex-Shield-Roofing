@@ -3,6 +3,7 @@ import { adminList } from "@/lib/admin-data";
 import { DEMO_MODE, SITE_CONFIG } from "@/config/site";
 import { leadSchema } from "@/lib/validation";
 import { ApiError, whopAccount, whopRequest } from "@/lib/whop";
+import { sendEstimateConfirmation } from "@/lib/estimate-email";
 import {
   checkOrigin,
   jsonError,
@@ -81,7 +82,8 @@ export async function POST(req: Request) {
       };
       if (Object.keys(metadata).length > 50) throw new ApiError("We could not finish saving your request. Please call us and we’ll help with your project.", 503);
       await whopRequest(`/members/${member.id}`, {metadata}, `${key}-index`, "PATCH");
-      return Response.json({success: true, demo: false, requestId: note.id, storage: "whop_members"});
+      const emailStatus = await sendEstimateConfirmation(input,note.id);
+      return Response.json({success: true, demo: false, requestId: note.id, storage: "whop_members", emailStatus});
     } catch (error) {
       if (
         error instanceof ApiError &&

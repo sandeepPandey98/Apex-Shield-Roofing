@@ -13,3 +13,8 @@ mocks:
     origin:
       - sandbox-api.whop.com
     path: postman/mocks/whop
+  - name: resend
+    routeKey: resend
+    origin:
+      - api.resend.com
+    path: postman/mocks/resend

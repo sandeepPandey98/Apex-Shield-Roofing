@@ -25,3 +25,15 @@ it("estimate success and its pixel event require a successful save; a later fail
   expect(trackCustomEvent).toHaveBeenCalledTimes(1);
  }finally{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
 });
+
+it.each([['accepted','submitted for delivery'],['failed','your request is saved'],['not_configured','Our team will contact you']])("estimate email status %s keeps confirmation truthful",async(emailStatus,copy)=>{
+ (globalThis as any).IS_REACT_ACT_ENVIRONMENT=true;
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({success:true,demo:false,emailStatus})));
+ const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+ try {
+  await act(async()=>root.render(<EstimateForm/>));
+  await act(async()=>host.querySelector('form')!.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));
+  expect(host.querySelector('[role="status"]')?.textContent).toContain(copy);
+  if(emailStatus!=='accepted')expect(host.textContent).not.toContain('submitted for delivery');
+ }finally {await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals();}
+});

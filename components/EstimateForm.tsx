@@ -36,7 +36,7 @@ export function EstimateForm() {
       setSuccess(
         data.demo
           ? "Demo complete. Your request was validated; nothing was sent or saved. Live requests will appear in the contractor’s Whop account."
-          : "Request received. Our team will contact you to discuss your property and next steps.",
+          : `Request received. Our team will contact you to discuss your property and next steps.${data.emailStatus === "accepted" ? " Your confirmation email has been submitted for delivery." : data.emailStatus === "failed" ? " Email confirmation is currently unavailable, but your request is saved. No need to submit it again." : ""}`,
       );
       form.reset();
       setKey(crypto.randomUUID());

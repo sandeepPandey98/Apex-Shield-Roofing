@@ -100,3 +100,19 @@ The deposit flow now creates an explicit setup intent using the paid deposit’s
 ## Estimate error diagnosed in sandbox
 
 The original metadata-only lead request was rejected with HTTP 400, `user_id is required`. It was corrected to resolve/create the account member through `POST /members`, then create the lead with `member.user.id`. Customer and lead requests have separate stable idempotency keys. The sandbox key was also confirmed to return HTTP 403 for `POST /members` because it lacks `member:manage`. Add that permission to the existing key before retrying. A new key is not required. `lead:basic:read` is separately needed for a custom lead-list view; it does not fix customer resolution.
+
+## Estimate confirmation emails (Resend)
+
+Quote capture and transactional email are separate. After Whop saves the estimate and its index, the server optionally requests a branded customer confirmation through Resend. The screenshot example used Resend; the Whop member save alone does not invoke that external sender.
+
+1. Create your own account at https://resend.com/signup and complete its sign-in/terms yourself.
+2. In API Keys, create a Sending access key. Store it privately as RESEND_API_KEY in .env.local. Never prefix it NEXT_PUBLIC_, paste it into chat, commit it, or put it in an embed URL.
+3. For a first demo, set ESTIMATE_EMAIL_FROM to `Apex Shield Roofing <onboarding@resend.dev>`. Resend's default domain only sends to the email address associated with your Resend account. Enter that address into the estimate form for the first delivery test.
+4. For general homeowner addresses, add a domain you own at https://resend.com/domains, apply its DNS records, wait for verification, and use a sender on that domain instead. The whop.site address is not automatically a verified Resend sending domain.
+5. Optionally set ESTIMATE_EMAIL_REPLY_TO to your real contractor inbox. The demo site's .example contact address is not a working inbox.
+6. Add the same private values to the hosting app with Whop encrypted runtime secrets; local env changes do not activate the deployed site. Restart local development after env changes.
+7. Submit one estimate with the permitted recipient. Inspect Resend's email record and your inbox/spam. API acceptance is not independent proof of inbox delivery.
+
+No email configuration means estimates still save normally. A configured sender failure leaves the estimate saved and shows that email confirmation was unavailable; do not resubmit just to resend an email. The provider call uses an idempotency key derived from the saved request ID. Resend retains idempotency keys for 24 hours; this is not a permanent deduplication guarantee. This implementation does not send a separate contractor inbox alert or backfill emails for old estimates.
+
+References: https://resend.com/docs/api-reference/emails/send-email and https://resend.com/docs/knowledge-base/403-error-resend-dev-domain .

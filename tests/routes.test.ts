@@ -60,7 +60,11 @@ const invoice = {
   depositPaid: 500,
   description: "Completed roof replacement",
 };
-beforeEach(() => control("ok", true));
+beforeEach(async () => {
+ await control("ok",true);
+ process.env.RESEND_API_KEY="";process.env.ESTIMATE_EMAIL_FROM="";delete process.env.ESTIMATE_EMAIL_REPLY_TO;
+ await fetch("http://127.0.0.1:4110/resend/__control",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reset:true})});
+});
 test("estimate saves a native Whop member note and preserves customer metadata", async () => {
   const response = await leads(req("leads", lead));
   assert.equal(response.status, 200);
@@ -677,4 +681,29 @@ test("payment activity uses sandbox receipts rather than production pixel creden
   const log=await calls() as any;assert.equal(log[0].path,"/api/v1/payments");assert.equal(log[0].injectKey,"none");assert.equal(log[0].hasAuthorization,true);assert.equal(log[0].query.from,undefined);assert.equal(log[0].query.to,undefined);
   assert.equal(Date.parse(log[0].query.created_before)-Date.parse(log[0].query.created_after),86400000);
  }finally {if(previous===undefined)delete process.env.ROOFING_HOSTED_TRACKING;else process.env.ROOFING_HOSTED_TRACKING=previous;}
+});
+
+function emailLeadRequest(input:unknown=lead) {const r=req("leads",input);r.headers.set("x-forwarded-for","192.0.2.111");return r;}
+async function emailCalls(){return (await (await fetch("http://127.0.0.1:4110/resend/__calls")).json()) as {calls:{body:any;key:string}[];count:number};}
+function configureTestEmail(){process.env.RESEND_API_KEY="re_test_private";process.env.ESTIMATE_EMAIL_FROM="Apex Shield <onboarding@resend.dev>";}
+test("estimate saving works without email credentials and does not claim an email was sent",async()=>{
+ const response=await leads(emailLeadRequest());assert.equal(response.status,200);assert.equal((await response.json()).emailStatus,"not_configured");assert.equal((await emailCalls()).calls.length,0);
+});
+test("saved estimates request a branded email with a stable retry key and escaped homeowner content",async()=>{
+ configureTestEmail();process.env.ESTIMATE_EMAIL_REPLY_TO="contractor@example.com";
+ const input={...lead,fullName:'Jamie <img src=x onerror="alert(1)">'};
+ const first=await leads(emailLeadRequest(input));assert.equal(first.status,200);const data=await first.json();assert.equal(data.emailStatus,"accepted");assert.equal(JSON.stringify(data).includes("re_test_private"),false);
+ const log=await emailCalls();assert.equal(log.count,1);const message=log.calls[0].body;
+ assert.deepEqual(message.to,[lead.email]);assert.equal(message.reply_to,"contractor@example.com");assert.match(message.subject,/roofing estimate request/);assert.match(message.html,/#153f35/);assert.match(message.html,/&lt;img/);assert.equal(message.html.includes('<img src=x'),false);assert.equal(message.html.includes(lead.address),false);
+ assert.equal((await leads(emailLeadRequest(input))).status,200);const replay=await emailCalls();assert.equal(replay.count,1);assert.equal(replay.calls[0].key,replay.calls[1].key);
+});
+test("rejected or unreadable email responses preserve the saved estimate and expose no provider details",async()=>{
+ configureTestEmail();
+ for(const mode of ["reject","html"]){
+  await fetch("http://127.0.0.1:4110/resend/__control",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({mode})});
+  const response=await leads(emailLeadRequest());assert.equal(response.status,200);const data=await response.json();assert.equal(data.success,true);assert.equal(data.emailStatus,"failed");assert.ok(data.requestId);assert.equal(JSON.stringify(data).includes("Sender domain"),false);
+ }
+});
+test("email is never attempted when the Whop estimate could not be saved",async()=>{
+ configureTestEmail();await control("unavailable");assert.equal((await leads(emailLeadRequest())).status,502);assert.equal((await emailCalls()).calls.length,0);
 });

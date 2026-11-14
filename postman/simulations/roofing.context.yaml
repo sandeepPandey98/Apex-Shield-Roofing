@@ -58,6 +58,13 @@ assumptions:
     verification: Local route tests assert upstream custom-name filters, all-event selection, sandbox payment credentials, time bounds, and removal of private customer/payment-method fields. UI tests verify the selector changes requests and explains the source distinction. Browser verification of the deployed update is recorded in docs/VERIFICATION.md.
     source: lib/admin-data.ts; components/ContractorAdmin.tsx; tests/routes.test.ts; tests/admin-ui.test.tsx; https://docs.whop.com/developer/websites/tracking.md; docs/whop-api-contract.json
     updated_at: "2026-11-14"
+  - id: optional-estimate-confirmation-email
+    status: supported
+    claim: In exercised stand-in scenarios, estimate confirmation email runs only after Whop persistence, and email failure does not turn a saved estimate into a failed submission.
+    reason: Resend HTTP calls and route responses were asserted through a separate local simulation member. A repeat for the same saved note used the same provider idempotency key.
+    verification: Route tests cover missing credentials, accepted payload, escaped HTML, rejected and unreadable responses, no-send on Whop failure, and key reuse. UI tests distinguish delivery acceptance from a saved estimate whose email failed. No actual delivery is claimed before credentials are configured.
+    source: lib/estimate-email.ts; app/api/leads/route.ts; tests/routes.test.ts; tests/estimate-ui.test.tsx; https://resend.com/docs/api-reference/emails/send-email; https://resend.com/docs/dashboard/emails/idempotency-keys
+    updated_at: "2026-11-14"
 fingerprints:
   - id: initial-verification
     date: "2026-11-13"
